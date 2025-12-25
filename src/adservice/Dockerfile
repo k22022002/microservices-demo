@@ -77,10 +77,6 @@ WORKDIR /app
 # [SEEKER] 1. Copy file JAR (Không cần unzip, không cần cài thêm gói gì)
 # File này được tải từ Jenkins và đưa vào context
 COPY seeker-agent.jar /app/seeker-agent.jar
-RUN ls -lh /app/seeker-agent.jar && \
-    apk add --no-cache unzip && \
-    unzip -t /app/seeker-agent.jar || \
-    (echo "❌ LỖI: File seeker-agent.jar trong Docker bị hỏng!" && exit 1)
 # [SEEKER] 2. Config
 ARG SEEKER_ACCESS_TOKEN
 ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
