@@ -29,7 +29,7 @@
 # --- Builder Stage ---
 FROM node:20-alpine AS builder
 
-# 1. Cài công cụ hỗ trợ
+# 1. Cài tools
 RUN sed -i 's/https/http/g' /etc/apk/repositories \
     && apk add --no-cache python3 make g++ unzip tar
 
@@ -39,33 +39,27 @@ ENV NODE_TLS_REJECT_UNAUTHORIZED=0
 WORKDIR /usr/src/app
 COPY package*.json ./
 
-# Dọn dẹp package.json
+# Dọn dẹp
 RUN sed -i '/@google-cloud\/profiler/d' package.json \
     && sed -i '/@google-cloud\/debug-agent/d' package.json
 
-# 2. Cài dependencies gốc
+# 2. Cài dependencies
 RUN npm install --only=production --no-audit
 
-# 3. [DEBUG MODE] Cài Seeker Agent và In Log chi tiết
+# 3. [FIX CỨNG] Cài Seeker Agent (Chấp nhận mọi tên file)
 COPY seeker-node-agent.zip /tmp/agent.zip
 
-# Giải nén và IN RA CẤU TRÚC FILE (Để xem nó nằm ở đâu)
-RUN unzip -d /tmp/seeker /tmp/agent.zip && \
-    echo "================ KIỂM TRA FILE GIẢI NÉN ================" && \
-    ls -R /tmp/seeker && \
-    echo "========================================================"
+# Giải nén
+RUN unzip -d /tmp/seeker /tmp/agent.zip
 
-# Tìm và Cài đặt
-# Lưu ý: Chúng ta dùng lệnh find để tự tìm file .tgz bất kể nó nằm sâu trong thư mục nào
-RUN echo "--- Đang cài đặt Seeker Agent ---" && \
-    find /tmp/seeker -name "*.tgz" -exec npm install {} --save --no-audit \;
+# IN RA file để kiểm tra (Xem tên thật nó là gì)
+RUN echo "--- DANH SÁCH FILE GIẢI NÉN ĐƯỢC ---" && \
+    ls -R /tmp/seeker
 
-# [QUAN TRỌNG] Kiểm tra xem cài xong nó chui vào đâu
-RUN echo "================ KIỂM TRA NODE_MODULES ================" && \
-    ls -F node_modules/ || echo "Khong tim thay node_modules" && \
-    echo "--- Kiểm tra folder @synopsys-sig ---" && \
-    ls -F node_modules/@synopsys-sig/ || echo "❌ KHÔNG THẤY @synopsys-sig" && \
-    echo "========================================================"
+# Cài đặt bằng lệnh Wildcard (*) để không bị sai tên
+# Lệnh này sẽ cài bất cứ file .tgz nào nó thấy
+RUN echo "--- Đang cài đặt file .tgz ---" && \
+    npm install /tmp/seeker/*.tgz --save --no-audit
 
 # --- Final Stage ---
 FROM node:20-alpine
@@ -75,14 +69,19 @@ WORKDIR /usr/src/app
 COPY --from=builder /usr/src/app/node_modules ./node_modules
 COPY . .
 
-# Config
+# [KIỂM TRA LẠI] In ra để chắc chắn agent đã nằm trong node_modules
+RUN echo "--- Kiểm tra kết quả cài đặt ---" && \
+    ls -d node_modules/@synopsys-sig/seeker || \
+    ls -d node_modules/seeker-agent || \
+    echo "⚠️ Vẫn chưa thấy Agent, hãy kiểm tra log!"
+
 ARG SEEKER_ACCESS_TOKEN
 ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
 ENV SEEKER_PROJECT_KEY="microservices-demo"
 
-# Import
-ENV NODE_OPTIONS="--import @synopsys-sig/seeker/agent/index.mjs"
+# Tạm thời disable dòng này để Container chạy được lên đã (rồi tính tiếp)
+# ENV NODE_OPTIONS="--import @synopsys-sig/seeker/agent/index.mjs"
 
 EXPOSE 50051
 ENTRYPOINT [ "node", "index.js" ]
