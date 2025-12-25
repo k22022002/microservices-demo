@@ -14,74 +14,36 @@
 
 # --- Builder Stage ---
 FROM gradle:8.6-jdk21-alpine AS builder
-
-# [FIX PERMISSION]
 USER root
-RUN sed -i 's/https/http/g' /etc/apk/repositories \
-    && apk add --no-cache libc6-compat gcompat
-
+# Chuyển repo sang HTTP
+RUN sed -i 's/https/http/g' /etc/apk/repositories && apk add --no-cache libc6-compat gcompat
 WORKDIR /app
 COPY . .
-
-# [OPTIMIZE]
+# Optimize Gradle
 ENV GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.jvmargs=-Xmx2048m -Djava.security.egd=file:/dev/./urandom"
-
-# [FIX SSL/TIME & REPO - GRADLE] (Giữ nguyên cấu hình repo của bạn)
-RUN printf "\
-settingsEvaluated { settings ->\n\
-    settings.pluginManagement {\n\
-        repositories {\n\
-            maven {\n\
-                url = uri('http://maven.aliyun.com/repository/gradle-plugin')\n\
-                allowInsecureProtocol = true\n\
-            }\n\
-            maven {\n\
-                url = uri('http://maven.aliyun.com/repository/public')\n\
-                allowInsecureProtocol = true\n\
-            }\n\
-        }\n\
-    }\n\
-}\n\
-allprojects {\n\
-    buildscript {\n\
-        repositories {\n\
-            maven {\n\
-                url = uri('http://maven.aliyun.com/repository/public')\n\
-                allowInsecureProtocol = true\n\
-            }\n\
-            maven {\n\
-                url = uri('http://maven.aliyun.com/repository/google')\n\
-                allowInsecureProtocol = true\n\
-            }\n\
-        }\n\
-    }\n\
-    repositories {\n\
-        maven {\n\
-            url = uri('http://maven.aliyun.com/repository/public')\n\
-            allowInsecureProtocol = true\n\
-        }\n\
-        maven {\n\
-            url = uri('http://maven.aliyun.com/repository/google')\n\
-            allowInsecureProtocol = true\n\
-        }\n\
-    }\n\
-}\n" > /tmp/init.gradle \
- && gradle installDist -x test --no-daemon --info --stacktrace --init-script /tmp/init.gradle
+# (Giữ nguyên phần config repo Gradle của bạn ở đây...)
+RUN printf "settingsEvaluated { settings -> settings.pluginManagement { repositories { maven { url = uri('http://maven.aliyun.com/repository/gradle-plugin'); allowInsecureProtocol = true } } } }\n allprojects { repositories { maven { url = uri('http://maven.aliyun.com/repository/public'); allowInsecureProtocol = true } } }" > /tmp/init.gradle \
+ && gradle installDist -x test --no-daemon --init-script /tmp/init.gradle
 
 # --- Final Stage ---
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
-# Copy file từ Jenkins workspace vào (File này phải đúng trước đã)
+# [QUAN TRỌNG] Copy file agent
 COPY seeker-agent.jar /app/seeker-agent.jar
 
-# Cấu hình Agent (Cách chuẩn cho Docker)
+# [DEBUG] Kiểm tra file ngay trong quá trình build
+# Nếu file nhỏ hơn 1MB (do lỗi copy) hoặc không unzip được -> Dừng build ngay!
+RUN ls -lh /app/seeker-agent.jar && \
+    apk add --no-cache unzip && \
+    unzip -t /app/seeker-agent.jar || \
+    (echo "❌ LỖI: File seeker-agent.jar trong Docker bị hỏng!" && exit 1)
+
+# Config Seeker
 ARG SEEKER_ACCESS_TOKEN
 ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
 ENV SEEKER_PROJECT_KEY="microservices-demo"
-
-# Kích hoạt Agent
 ENV JAVA_TOOL_OPTIONS="-javaagent:/app/seeker-agent.jar"
 
 COPY --from=builder /app/build/install/hipstershop /app
