@@ -70,26 +70,20 @@ allprojects {\n\
 
 # --- Final Stage ---
 FROM eclipse-temurin:21-jre-alpine
-
 WORKDIR /app
 
-# Copy Agent từ Jenkins workspace
+# Copy file từ Jenkins workspace vào (File này phải đúng trước đã)
 COPY seeker-agent.jar /app/seeker-agent.jar
 
-# [FIX CRITICAL] KIỂM TRA FILE JAR
-# Lệnh này sẽ failed build nếu file jar bị lỗi (do tải sai)
-RUN apk add --no-cache unzip && \
-    unzip -t /app/seeker-agent.jar || \
-    (echo "!!! FILE JAR BỊ LỖI. KIỂM TRA LẠI JENKINS DOWNLOAD !!!" && exit 1)
-
-# [SEEKER] Config
+# Cấu hình Agent (Cách chuẩn cho Docker)
 ARG SEEKER_ACCESS_TOKEN
 ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
 ENV SEEKER_PROJECT_KEY="microservices-demo"
+
+# Kích hoạt Agent
 ENV JAVA_TOOL_OPTIONS="-javaagent:/app/seeker-agent.jar"
 
 COPY --from=builder /app/build/install/hipstershop /app
-
 EXPOSE 9555
 ENTRYPOINT ["/app/bin/AdService"]

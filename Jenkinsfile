@@ -27,23 +27,30 @@ pipeline {
             steps {
                 script {
                     echo "--- Downloading Agents with Check ---"
+
+		    // 1. JAVA: Xóa file cũ
+                    sh "rm -f src/adservice/seeker-agent.jar"
                     
-		    sh """
-                        # Xóa file cũ nếu có
-                        rm -f src/adservice/seeker-agent.jar
-                        
-                        # Tải file
-                        curl -k -fL "${SEEKER_URL}/rest/api/latest/installers/agents/binaries/JAVA?projectKey=${SEEKER_PROJECT_KEY}&accessToken=${SEEKER_ACCESS_TOKEN}" \
+                    // Tải file (Giữ nguyên link API của bạn)
+                    sh """
+                        curl -k -L "${SEEKER_URL}/rest/api/latest/installers/agents/binaries/JAVA?projectKey=${SEEKER_PROJECT_KEY}&accessToken=${SEEKER_ACCESS_TOKEN}" \
                         -o src/adservice/seeker-agent.jar
-                        
-                        # [QUAN TRỌNG] Kiểm tra xem file có phải là ZIP hợp lệ không
-                        if ! unzip -t src/adservice/seeker-agent.jar > /dev/null; then
-                            echo "ERROR: File Java Agent tải về bị lỗi (Corrupted/HTML). Dừng build!"
-                            cat src/adservice/seeker-agent.jar # In nội dung file lỗi để debug
+                    """
+                    
+                    // [QUAN TRỌNG] Kiểm tra nội dung file
+                    sh """
+                        echo "--- KIỂM TRA FILE JAVA AGENT ---"
+                        if unzip -t src/adservice/seeker-agent.jar > /dev/null 2>&1; then
+                            echo "✅ SUCCESS: File JAR tải về OK."
+                        else
+                            echo "❌ ERROR: File tải về KHÔNG PHẢI là JAR. Nội dung thực tế là:"
+                            echo "======================================================="
+                            cat src/adservice/seeker-agent.jar
+                            echo "======================================================="
+                            echo "Dừng build để bạn kiểm tra lỗi trên."
                             exit 1
                         fi
-                        echo "Java Agent downloaded OK."
-                    """
+                    """                    
                     // 2. NODE.JS
                     sh """
                         curl -k -fL "${SEEKER_URL}/rest/api/latest/installers/agents/binaries/NODEJS?projectKey=${SEEKER_PROJECT_KEY}&accessToken=${SEEKER_ACCESS_TOKEN}" \
