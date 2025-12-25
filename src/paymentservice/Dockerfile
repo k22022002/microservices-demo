@@ -39,21 +39,19 @@ ENV NODE_TLS_REJECT_UNAUTHORIZED=0
 WORKDIR /usr/src/app
 COPY package*.json ./
 
-# Xóa các gói debug gây xung đột (nếu có)
+# Xóa các gói debug gây xung đột
 RUN sed -i '/@google-cloud\/profiler/d' package.json \
     && sed -i '/@google-cloud\/debug-agent/d' package.json
 
 # [FIX 2] Cài App Dependencies
 RUN npm install --only=production --no-audit
 
-# [FIX 3 - QUAN TRỌNG] Cài Seeker Agent từ file .tgz
-# Copy file zip từ Jenkins vào
+# [FIX 3] Cài Seeker Agent từ file .tgz
 COPY seeker-node-agent.zip /tmp/seeker-node-agent.zip
-# Giải nén ra temp
 RUN unzip -d /tmp/seeker /tmp/seeker-node-agent.zip
 
-# Lệnh cài đặt CHUẨN: Cài file .tgz thẳng vào App
-# NPM sẽ tự xử lý các dependency đi kèm bên trong file tgz -> Fix lỗi 404
+# Lệnh cài đặt CHUẨN: Cài file .tgz thẳng vào App (Root)
+# Điều này giúp Seeker nằm trong node_modules chính -> Sửa lỗi MODULE_NOT_FOUND
 RUN find /tmp/seeker -name "seeker-agent.tgz" -exec npm install {} --save --no-audit \;
 
 # --- Final Stage ---
@@ -61,7 +59,7 @@ FROM node:20-alpine
 ENV NODE_TLS_REJECT_UNAUTHORIZED=0
 WORKDIR /usr/src/app
 
-# Copy node_modules (Lúc này đã chứa Seeker Agent trong đó)
+# Copy node_modules (Đã chứa Seeker Agent)
 COPY --from=builder /usr/src/app/node_modules ./node_modules
 COPY . .
 
@@ -71,8 +69,7 @@ ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
 ENV SEEKER_PROJECT_KEY="microservices-demo"
 
-# [FIX PATH] Import chuẩn từ node_modules
-# Khi cài bằng npm install file.tgz, nó sẽ nằm trong @synopsys-sig/seeker
+# [FIX PATH] Import chuẩn từ node_modules (Vì ta đã npm install vào root)
 ENV NODE_OPTIONS="--import @synopsys-sig/seeker/agent/index.mjs"
 
 EXPOSE 50051
