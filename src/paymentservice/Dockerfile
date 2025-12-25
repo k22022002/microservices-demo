@@ -29,10 +29,9 @@
 # --- Builder Stage ---
 FROM node:20-alpine AS builder
 
-# Setup cơ bản
-# [FIX BUILD ERROR] Cài thêm python3, make, g++ để biên dịch pprof/grpc
+# [QUAN TRỌNG] 1. Cài đặt Python và công cụ biên dịch (để build pprof và dependencies)
 RUN sed -i 's/https/http/g' /etc/apk/repositories \
-    && apk add --no-cache unzip tar python3 make g++
+    && apk add --no-cache python3 make g++ unzip tar
 
 RUN npm config set strict-ssl false
 ENV NODE_TLS_REJECT_UNAUTHORIZED=0
@@ -40,33 +39,29 @@ ENV NODE_TLS_REJECT_UNAUTHORIZED=0
 WORKDIR /usr/src/app
 COPY package*.json ./
 
-# Xóa các gói gây xung đột (nếu có)
+# Xóa bớt google-cloud-profiler nếu không cần thiết
 RUN sed -i '/@google-cloud\/profiler/d' package.json \
     && sed -i '/@google-cloud\/debug-agent/d' package.json
 
-# 1. Cài đặt App Dependencies (Production only)
+# 2. Cài đặt App Dependencies (Production only)
 RUN npm install --only=production --no-audit
-# 2. [FIX MANUAL] Giải nén thủ công Seeker Agent
+
+# 3. Cài đặt Seeker Agent (Phương pháp chuẩn: Install file .tgz)
 COPY seeker-node-agent.zip /tmp/seeker-node-agent.zip
 RUN unzip -d /tmp/seeker /tmp/seeker-node-agent.zip
 
-# Tìm file tgz và giải nén nó ra thư mục /usr/src/app/seeker-agent
-# (Mặc định npm pack tạo thư mục tên là 'package', ta đổi tên nó thành 'seeker-agent')
-RUN mkdir -p /usr/src/app/seeker-agent \
-    && find /tmp/seeker -name "seeker-agent.tgz" -exec tar -xzf {} -C /usr/src/app/seeker-agent --strip-components=1 \; \
-    # Cài đặt dependencies RIÊNG cho agent
-    && cd /usr/src/app/seeker-agent && npm install --production --no-audit
+# [FIX LOI 404] Thay vì giải nén, ta cài thẳng file .tgz vào node_modules
+# - "--prefix /usr/src/app": Sửa lỗi "required argument --prefix" bạn gặp lúc đầu
+# - "--no-save": Không sửa file package.json
+RUN find /tmp/seeker -name "seeker-agent.tgz" -exec npm install {} --prefix /usr/src/app --no-save --no-audit \;
 
 # --- Final Stage ---
 FROM node:20-alpine
 ENV NODE_TLS_REJECT_UNAUTHORIZED=0
 WORKDIR /usr/src/app
 
-# Copy node_modules của App
+# Copy node_modules (Lúc này Seeker Agent đã nằm gọn trong node_modules/@synopsys-sig/seeker)
 COPY --from=builder /usr/src/app/node_modules ./node_modules
-
-# [QUAN TRỌNG] Copy thư mục Agent đã giải nén thủ công
-COPY --from=builder /usr/src/app/seeker-agent ./seeker-agent
 
 COPY . .
 
@@ -76,9 +71,9 @@ ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
 ENV SEEKER_PROJECT_KEY="microservices-demo"
 
-# [FIX PATH] Trỏ thẳng vào file index.mjs trong thư mục đã giải nén
-# Không dùng @synopsys-sig... nữa mà dùng đường dẫn file trực tiếp
-ENV NODE_OPTIONS="--import /usr/src/app/seeker-agent/agent/index.mjs"
+# [FIX PATH] Trỏ vào agent nằm trong node_modules chuẩn
+# Lưu ý: Đường dẫn này khác với cách giải nén thủ công
+ENV NODE_OPTIONS="--import ./node_modules/@synopsys-sig/seeker/agent/index.mjs"
 
 EXPOSE 50051
 ENTRYPOINT [ "node", "index.js" ]
