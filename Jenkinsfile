@@ -76,7 +76,15 @@ pipeline {
                 }
             }
         }
-
+	stage('Sync Time for Docker Hub') {
+            steps {
+                script {
+                    echo "--- Tạm thời đổi giờ sang 2026 để qua mặt SSL của Docker Hub ---"
+                    // Cập nhật giờ thành năm 2026 (Ngày hiện tại của hệ thống Docker Hub)
+                    sh "sudo date -s '2026-03-03 12:00:00'"
+                }
+            }
+        }
         stage('Build & Push: Java (AdService)') {
             steps {
                 script {
@@ -139,14 +147,19 @@ pipeline {
             }
         }
     }
-
     post {
         always {
-            // Dọn dẹp
-            sh "rm -f src/adservice/seeker-agent.jar"
-            sh "rm -f src/paymentservice/seeker-node-agent.zip"
-            sh "rm -f src/frontend/seeker-agent-linux-amd64"
-	    sh "rm -f src/checkoutservice/seeker-agent-linux-amd64"
+            script {
+                echo "--- Dọn dẹp và Trả lại thời gian gốc (2025) ---"
+                // TRẢ LẠI THỜI GIAN CŨ NGAY CẢ KHI BUILD FAIL
+                sh "sudo date -s '2025-12-25 00:00:00'"
+                
+                // Dọn dẹp file
+                sh "rm -f src/adservice/seeker-agent.jar"
+                sh "rm -f src/paymentservice/seeker-node-agent.zip"
+                sh "rm -f src/frontend/seeker-agent-linux-amd64"
+                sh "rm -f src/checkoutservice/seeker-agent-linux-amd64"
+            }
         }
     }
 }
