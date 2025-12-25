@@ -31,15 +31,17 @@ pipeline {
 		    // 1. JAVA: Xóa file cũ
                     sh "rm -f src/adservice/seeker-agent.jar"
                     
-                    // Tải file (Giữ nguyên link API của bạn)
+                    // Tải file
                     sh """
                         curl -k -L "${SEEKER_URL}/rest/api/latest/installers/agents/binaries/JAVA?projectKey=${SEEKER_PROJECT_KEY}&accessToken=${SEEKER_ACCESS_TOKEN}" \
                         -o src/adservice/seeker-agent.jar
                     """
                     
-                    // [QUAN TRỌNG] Kiểm tra nội dung file
+                    // [QUAN TRỌNG] Kiểm tra xem file tải về chứa cái gì
                     sh """
                         echo "--- KIỂM TRA FILE JAVA AGENT ---"
+                        # Lệnh 'file' giúp xem loại file (HTML hay Zip data)
+                        # Nếu không có lệnh file thì dùng cat để in nội dung
                         if unzip -t src/adservice/seeker-agent.jar > /dev/null 2>&1; then
                             echo "✅ SUCCESS: File JAR tải về OK."
                         else
@@ -50,7 +52,7 @@ pipeline {
                             echo "Dừng build để bạn kiểm tra lỗi trên."
                             exit 1
                         fi
-                    """                    
+                    """
                     // 2. NODE.JS
                     sh """
                         curl -k -fL "${SEEKER_URL}/rest/api/latest/installers/agents/binaries/NODEJS?projectKey=${SEEKER_PROJECT_KEY}&accessToken=${SEEKER_ACCESS_TOKEN}" \

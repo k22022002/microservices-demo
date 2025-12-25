@@ -30,16 +30,22 @@
 FROM node:20-alpine AS builder
 
 # Setup cơ bản
-RUN sed -i 's/https/http/g' /etc/apk/repositories && apk add --no-cache unzip tar
+# [FIX BUILD ERROR] Cài thêm python3, make, g++ để biên dịch pprof/grpc
+RUN sed -i 's/https/http/g' /etc/apk/repositories \
+    && apk add --no-cache unzip tar python3 make g++
+
 RUN npm config set strict-ssl false
 ENV NODE_TLS_REJECT_UNAUTHORIZED=0
 
 WORKDIR /usr/src/app
 COPY package*.json ./
 
+# Xóa các gói gây xung đột (nếu có)
+RUN sed -i '/@google-cloud\/profiler/d' package.json \
+    && sed -i '/@google-cloud\/debug-agent/d' package.json
+
 # 1. Cài đặt App Dependencies (Production only)
 RUN npm install --only=production --no-audit
-
 # 2. [FIX MANUAL] Giải nén thủ công Seeker Agent
 COPY seeker-node-agent.zip /tmp/seeker-node-agent.zip
 RUN unzip -d /tmp/seeker /tmp/seeker-node-agent.zip
