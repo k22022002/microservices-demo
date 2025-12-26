@@ -15,25 +15,20 @@
 # --- Builder Stage ---
 FROM gradle:8.6-jdk21-alpine AS builder
 
-# [FIX PERMISSION] Chuyển sang root để có quyền cài gói hệ thống
+# [FIX PERMISSION] Chuyển sang root
 USER root
 
 # [FIX SSL/TIME & PROTOBUF]
-# 1. Chuyển repo Alpine sang HTTP để tránh lỗi "certificate verify failed" do sai giờ
-# 2. Cài đặt thư viện tương thích (libc6-compat, gcompat) để chạy được protoc
 RUN sed -i 's/https/http/g' /etc/apk/repositories \
     && apk add --no-cache libc6-compat gcompat
 
 WORKDIR /app
-
 COPY . .
 
-# [OPTIMIZE] Cấu hình RAM và Entropy cho Gradle (Tránh treo)
+# [OPTIMIZE] Cấu hình RAM và Entropy cho Gradle
 ENV GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.jvmargs=-Xmx2048m -Djava.security.egd=file:/dev/./urandom"
 
 # [FIX SSL/TIME & REPO - GRADLE]
-# Tạo init.gradle cấu hình Mirror HTTP (Aliyun) cho cả Plugin và Dependency
-# Thêm repo 'google' để tải protoc
 RUN printf "\
 settingsEvaluated { settings ->\n\
     settings.pluginManagement {\n\
@@ -75,14 +70,13 @@ allprojects {\n\
 }\n" > /tmp/init.gradle \
  && gradle installDist -x test --no-daemon --info --stacktrace --init-script /tmp/init.gradle
 
-# ... (Giữ nguyên phần đầu của Dockerfile (3).txt) ...
-
 # --- Final Stage ---
 FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
-# Copy Agent từ Jenkins workspace
+# [SEEKER] Copy Agent từ Jenkins workspace (Context)
+# File này phải được Jenkins tải về trước khi chạy docker build
 COPY seeker-agent.jar /app/seeker-agent.jar
 
 # [SEEKER] Config
@@ -90,6 +84,7 @@ ARG SEEKER_ACCESS_TOKEN
 ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
 ENV SEEKER_PROJECT_KEY="microservices-demo"
+# Đường dẫn tuyệt đối tới file jar
 ENV JAVA_TOOL_OPTIONS="-javaagent:/app/seeker-agent.jar"
 
 COPY --from=builder /app/build/install/hipstershop /app

@@ -6,9 +6,8 @@ pipeline {
         SEEKER_PROJECT_KEY = 'microservices-demo'
         DOCKER_REGISTRY = 'kienngo22022002'
         DOCKER_CRED_ID = 'docker-hub-credentials-id'
-
-        // [FIX 1] Đặt Token ở đây để sửa lỗi "MissingPropertyException"
-        // Biến này giờ sẽ dùng được ở cả stage Download và stage Build
+        
+        // Token Seeker
         SEEKER_ACCESS_TOKEN = credentials('seeker-agent-token')
 
         // Bypass SSL
@@ -27,22 +26,34 @@ pipeline {
         stage('Download Seeker Agents (Direct Binary)') {
             steps {
                 script {
-                    echo "--- Downloading Agents ---"
-                    
-                    // [FIX 2] Dùng API /binaries/ thay vì /scripts/ để lấy file chuẩn
-                    // Thêm cờ -f để báo lỗi ngay nếu server trả về 404/500
+                    echo "--- Downloading Agents with Check ---"
                     
                     // 1. JAVA
+                    // Thêm flag -f để fail nếu server trả về lỗi 404/500
                     sh """
                         curl -k -fL "${SEEKER_URL}/rest/api/latest/installers/agents/binaries/JAVA?projectKey=${SEEKER_PROJECT_KEY}&accessToken=${SEEKER_ACCESS_TOKEN}" \
                         -o src/adservice/seeker-agent.jar
-			unzip -t src/adservice/seeker-agent.jar || echo "WARNING: File JAR có thể bị lỗi!"
+                        
+                        # Verify file (Quan trọng)
+                        if unzip -t src/adservice/seeker-agent.jar; then
+                            echo "Java Agent downloaded successfully"
+                        else
+                            echo "ERROR: Java Agent file is corrupted!"
+                            exit 1
+                        fi
                     """
 
-                    // 2. NODE.JS (Sửa lỗi MODULE_NOT_FOUND bằng cách tải đúng file zip)
+                    // 2. NODE.JS
                     sh """
                         curl -k -fL "${SEEKER_URL}/rest/api/latest/installers/agents/binaries/NODEJS?projectKey=${SEEKER_PROJECT_KEY}&accessToken=${SEEKER_ACCESS_TOKEN}" \
                         -o src/paymentservice/seeker-node-agent.zip
+                        
+                        if unzip -t src/paymentservice/seeker-node-agent.zip; then
+                            echo "Node Agent downloaded successfully"
+                        else
+                            echo "ERROR: Node Agent file is corrupted!"
+                            exit 1
+                        fi
                     """
                     
                     // 3. GO
@@ -55,27 +66,28 @@ pipeline {
             }
         }
 
-	stage('Build & Push: Java (AdService)') {
-    steps {
-        script {
-            docker.withRegistry('', "${DOCKER_CRED_ID}") {
-                dir('src/adservice') {
-                    // [THÊM] --no-cache để đảm bảo copy file jar mới nhất
-                    def img = docker.build("${DOCKER_REGISTRY}/adservice:iast", 
-                        "--no-cache --build-arg SEEKER_ACCESS_TOKEN=${SEEKER_ACCESS_TOKEN} .")
-                    img.push()
+        stage('Build & Push: Java (AdService)') {
+            steps {
+                script {
+                    docker.withRegistry('', "${DOCKER_CRED_ID}") {
+                        dir('src/adservice') {
+                            // --no-cache để đảm bảo copy file agent mới nhất
+                            def img = docker.build("${DOCKER_REGISTRY}/adservice:iast", 
+                                "--no-cache --build-arg SEEKER_ACCESS_TOKEN=${SEEKER_ACCESS_TOKEN} .")
+                            img.push()
+                        }
+                    }
                 }
             }
         }
-    }
-}
+
         stage('Build & Push: Node.js (PaymentService)') {
             steps {
                 script {
                     docker.withRegistry('', "${DOCKER_CRED_ID}") {
                         dir('src/paymentservice') {
                             def img = docker.build("${DOCKER_REGISTRY}/paymentservice:iast", 
-                                "--build-arg SEEKER_ACCESS_TOKEN=${SEEKER_ACCESS_TOKEN} .")
+                                "--no-cache --build-arg SEEKER_ACCESS_TOKEN=${SEEKER_ACCESS_TOKEN} .")
                             img.push()
                         }
                     }
@@ -89,7 +101,7 @@ pipeline {
                     docker.withRegistry('', "${DOCKER_CRED_ID}") {
                         dir('src/frontend') {
                             def img = docker.build("${DOCKER_REGISTRY}/frontend:iast", 
-                                "--build-arg SEEKER_URL=${SEEKER_URL} --build-arg SEEKER_PROJECT=${SEEKER_PROJECT_KEY} --build-arg SEEKER_ACCESS_TOKEN=${SEEKER_ACCESS_TOKEN} .")
+                                "--no-cache --build-arg SEEKER_URL=${SEEKER_URL} --build-arg SEEKER_PROJECT=${SEEKER_PROJECT_KEY} --build-arg SEEKER_ACCESS_TOKEN=${SEEKER_ACCESS_TOKEN} .")
                             img.push()
                         }
                     }

@@ -14,12 +14,26 @@
 
 # [CHANGE] Dùng golang:1.22 (Debian) thay vì alpine để tương thích 100% với Seeker Agent (glibc)
 # Điều này sẽ khắc phục lỗi treo mà không cần cài thêm thư viện tương thích.
-# --- Builder Stage ---
-FROM golang:1.22-alpine AS builder
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
-# [FIX SSL] Chuyen Alpine repo sang HTTP
-RUN sed -i 's/https/http/g' /etc/apk/repositories \
-    && apk add --no-cache git
+# [CHANGE] Dùng golang:1.22 (Debian standard) thay vì alpine để tương thích 100% với Seeker Agent (glibc)
+# --- Builder Stage ---
+FROM golang:1.22 AS builder
+
+# Không cần sed repository vì đây là Debian chuẩn
+RUN apt-get update && apt-get install -y git
 
 WORKDIR /src
 
@@ -31,7 +45,7 @@ RUN chmod +x /usr/local/bin/seeker-agent-build
 COPY go.mod go.sum ./
 
 # ====================================================================================
-# [CRITICAL FIX] "ĐẠI PHẪU" DOWNGRADE VERSION
+# [CRITICAL FIX] "ĐẠI PHẪU" DOWNGRADE VERSION (Giữ nguyên logic của bạn)
 # ====================================================================================
 
 # 1. Sửa header go.mod: Hạ từ 1.25 xuống 1.22 và xóa toolchain
@@ -86,7 +100,6 @@ RUN cp go.mod go.mod.bak \
 
 # Copy source code (Ghi đè go.mod bằng bản lỗi từ host)
 COPY . .
-
 # [FIX RESTORE] Khôi phục go.mod
 RUN mv go.mod.bak go.mod \
     && if [ -f go.sum.bak ]; then mv go.sum.bak go.sum; else rm -f go.sum; fi
@@ -105,12 +118,11 @@ RUN export SEEKER_SERVER_URL=$SEEKER_URL \
     && /usr/local/bin/seeker-agent-build go build -v -o /go/bin/frontend .
 
 # --- Final Stage ---
-FROM alpine:latest
+# [CRITICAL] Dùng Debian Slim thay vì Alpine để có glibc
+FROM debian:bookworm-slim
 
-# [FIX SSL - QUAN TRỌNG] 
-# Chuyển repository sang HTTP để tránh lỗi "TLS: server certificate not trusted"
-RUN sed -i 's/https/http/g' /etc/apk/repositories \
-    && apk add --no-cache ca-certificates
+# Cài đặt CA Certificates để gọi HTTPS và networking tools cơ bản
+RUN apt-get update && apt-get install -y ca-certificates net-tools && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
 COPY --from=builder /go/bin/frontend /src/server
@@ -124,7 +136,7 @@ ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
 ENV SEEKER_PROJECT_KEY="microservices-demo"
 
 # [FIX PANIC] Biến môi trường cho App
-ENV PRODUCT_CATALOG_SERVICE_ADDR="adservice:3550"
+ENV PRODUCT_CATALOG_SERVICE_ADDR="productcatalogservice:3550"
 ENV CURRENCY_SERVICE_ADDR="currencyservice:7000"
 ENV CART_SERVICE_ADDR="cartservice:7070"
 ENV RECOMMENDATION_SERVICE_ADDR="recommendationservice:8080"

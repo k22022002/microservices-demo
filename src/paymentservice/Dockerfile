@@ -28,19 +28,18 @@ RUN sed -i '/@google-cloud\/profiler/d' package.json \
     && sed -i '/@google-cloud\/debug-agent/d' package.json
 
 # [SEEKER] Cài đặt Agent
-# 1. Copy file zip từ Jenkins vào
 COPY seeker-node-agent.zip /tmp/seeker-node-agent.zip
 
-# 2. Giải nén vào thư mục 'seeker'
-RUN mkdir -p seeker \
-    && unzip -d seeker /tmp/seeker-node-agent.zip \
-    # Tìm file .tgz bất kể nó nằm ở đâu sau khi giải nén và cài đặt nó
-    && find seeker -name "seeker-agent.tgz" -exec npm install {} --prefix seeker --save --no-audit \;
-# 3. Cài đặt agent dependencies vào thư mục seeker
-# Lưu ý: --prefix seeker là quan trọng để nó tạo node_modules bên trong folder seeker
-RUN npm install ./seeker/seeker-agent.tgz --prefix seeker --save --no-audit
+# Giải nén và cài đặt
+RUN unzip -d /tmp/seeker /tmp/seeker-node-agent.zip \
+    && mkdir -p seeker \
+    # Tìm file tgz và copy vào thư mục build
+    && find /tmp/seeker -name "seeker-agent.tgz" -exec cp {} ./seeker/seeker-agent.tgz \; \
+    # Cài đặt dependencies cho agent vào trong folder seeker
+    && cd seeker && npm install ./seeker-agent.tgz --save --no-audit
 
 # Cài đặt App Dependencies
+WORKDIR /usr/src/app
 RUN npm install --only=production --no-audit
 
 # --- Final Stage ---
@@ -50,7 +49,7 @@ WORKDIR /usr/src/app
 
 # Copy node_modules của App
 COPY --from=builder /usr/src/app/node_modules ./node_modules
-# Copy toàn bộ thư mục seeker (đã bao gồm node_modules của agent)
+# Copy thư mục seeker đã cài đặt
 COPY --from=builder /usr/src/app/seeker ./seeker
 
 COPY . .
@@ -61,8 +60,8 @@ ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
 ENV SEEKER_PROJECT_KEY="microservices-demo"
 
-# Đường dẫn này phải khớp với cấu trúc trong folder ./seeker
-ENV NODE_OPTIONS="--import ./seeker/node_modules/@synopsys-sig/seeker/agent/index.mjs"
+# [FIX PATH] Sử dụng đường dẫn TUYỆT ĐỐI (Absolute Path) để tránh lỗi không tìm thấy module
+ENV NODE_OPTIONS="--import /usr/src/app/seeker/node_modules/@synopsys-sig/seeker/agent/index.mjs"
 
 EXPOSE 50051
 ENTRYPOINT [ "node", "index.js" ]
