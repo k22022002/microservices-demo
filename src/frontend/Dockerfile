@@ -106,7 +106,11 @@ RUN export SEEKER_SERVER_URL=$SEEKER_URL \
 
 # --- Final Stage ---
 FROM alpine:latest
-RUN apk add --no-cache ca-certificates
+
+# [FIX SSL - QUAN TRỌNG] 
+# Chuyển repository sang HTTP để tránh lỗi "TLS: server certificate not trusted"
+RUN sed -i 's/https/http/g' /etc/apk/repositories \
+    && apk add --no-cache ca-certificates
 
 WORKDIR /src
 COPY --from=builder /go/bin/frontend /src/server
@@ -119,7 +123,7 @@ ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
 ENV SEEKER_PROJECT_KEY="microservices-demo"
 
-# [FIX PANIC] Thêm các biến môi trường bắt buộc cho App Frontend
+# [FIX PANIC] Biến môi trường cho App
 ENV PRODUCT_CATALOG_SERVICE_ADDR="adservice:3550"
 ENV CURRENCY_SERVICE_ADDR="currencyservice:7000"
 ENV CART_SERVICE_ADDR="cartservice:7070"
@@ -127,7 +131,6 @@ ENV RECOMMENDATION_SERVICE_ADDR="recommendationservice:8080"
 ENV SHIPPING_SERVICE_ADDR="shippingservice:50051"
 ENV CHECKOUT_SERVICE_ADDR="checkoutservice:5050"
 ENV AD_SERVICE_ADDR="adservice:9555"
-# Lưu ý: "adservice", "currencyservice"... là tên service (host) trong docker-compose/k8s của bạn
 
 EXPOSE 8080
 ENTRYPOINT ["/src/server"]
