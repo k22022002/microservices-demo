@@ -38,7 +38,6 @@ RUN sed -i 's/^go 1\.[0-9]\+/go 1.22/' go.mod \
 
 # 2. Xóa go.sum để tạo lại bản mới tương thích
 RUN rm -f go.sum 
-
 # --- Google Cloud Core ---
 RUN go mod edit -replace cloud.google.com/go=cloud.google.com/go@v0.110.0 \
     && go mod edit -replace cloud.google.com/go/auth=cloud.google.com/go/auth@v0.13.0 \
@@ -52,12 +51,19 @@ RUN go mod edit -replace github.com/googleapis/gax-go/v2=github.com/googleapis/g
     && go mod edit -replace google.golang.org/grpc=google.golang.org/grpc@v1.64.0 \
     && go mod edit -replace google.golang.org/protobuf=google.golang.org/protobuf@v1.33.0
 
-# --- OpenTelemetry (BẮT BUỘC PHẢI CÓ ĐỂ FIX LỖI GO 1.24) ---
-# Dòng dưới cùng chính là dòng fix lỗi bạn vừa gặp
+# --- Utilities ---
+RUN go mod edit -replace github.com/cenkalti/backoff/v5=github.com/cenkalti/backoff/v4@v4.3.0 \
+    && go mod edit -replace github.com/go-playground/validator/v10=github.com/go-playground/validator/v10@v10.20.0 \
+    && go mod edit -replace github.com/google/pprof=github.com/google/pprof@v0.0.0-20240525223248-4bfdf5a9a2af
+
+# --- OpenTelemetry ---
 RUN go mod edit -replace go.opentelemetry.io/otel=go.opentelemetry.io/otel@v1.24.0 \
     && go mod edit -replace go.opentelemetry.io/otel/sdk=go.opentelemetry.io/otel/sdk@v1.24.0 \
     && go mod edit -replace go.opentelemetry.io/otel/trace=go.opentelemetry.io/otel/trace@v1.24.0 \
-    && go mod edit -replace go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc=go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc@v0.49.0
+    && go mod edit -replace go.opentelemetry.io/otel/metric=go.opentelemetry.io/otel/metric@v1.24.0 \
+    && go mod edit -replace go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc=go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc@v1.24.0 \
+    && go mod edit -replace go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc=go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc@v0.49.0 \
+    && go mod edit -replace go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp=go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp@v0.49.0
 # ====================================================================================
 
 # [FIX SSL] Cấu hình proxy và bỏ qua xác thực SSL khi tải thư viện
