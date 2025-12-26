@@ -57,12 +57,12 @@ FROM node:20-alpine
 ENV NODE_TLS_REJECT_UNAUTHORIZED=0
 WORKDIR /usr/src/app
 
-# Copy node_modules từ builder (Lúc này CHƯA CÓ các gói giả)
+# Copy node_modules từ builder
 COPY --from=builder /usr/src/app/node_modules ./node_modules
 COPY . .
 
-# [FIX FINAL - BẤT TỬ] TẠO MODULE GIẢ NGAY TẠI ĐÂY
-# Tạo ở bước này thì không ai xóa được nữa.
+# 5. TẠO MODULE GIẢ (BẤT TỬ)
+# Giữ nguyên phần này vì nó đã hoạt động Tốt
 RUN mkdir -p node_modules/@google-cloud/profiler \
     && echo "module.exports = { start: function() { console.log('Mock Profiler'); return {}; } };" > node_modules/@google-cloud/profiler/index.js
 
@@ -78,6 +78,9 @@ ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
 ENV SEEKER_PROJECT_KEY="microservices-demo"
 ENV NODE_OPTIONS="--require @synopsys-sig/seeker"
+
+# [FIX FINAL] Cài cứng Port để tránh lỗi undefined
+ENV PORT=50051
 
 EXPOSE 50051
 ENTRYPOINT [ "node", "index.js" ]
