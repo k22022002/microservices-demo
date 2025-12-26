@@ -39,48 +39,34 @@ ENV NODE_TLS_REJECT_UNAUTHORIZED=0
 WORKDIR /usr/src/app
 COPY package*.json ./
 
-# Dọn dẹp package.json
 RUN sed -i '/@google-cloud\/profiler/d' package.json \
     && sed -i '/@google-cloud\/debug-agent/d' package.json
 
-# 2. Cài dependencies gốc
+# 2. Cài dependencies
 RUN npm install --only=production --no-audit
 
-# 3. [FIXED] Cài Seeker Agent với tham số Prefix
+# 3. Cài Seeker Agent (Giữ nguyên phần này vì đã OK)
 COPY seeker-node-agent.zip /tmp/agent.zip
-
-# Giải nén
 RUN unzip -d /tmp/seeker /tmp/agent.zip
-
-# Cài đặt file .tgz với tham số --prefix /usr/src/app
-# Đây là chìa khóa để sửa lỗi "npm install run without required argument"
-RUN echo "--- Đang cài đặt file .tgz ---" && \
-    npm install /tmp/seeker/*.tgz --save --no-audit --prefix /usr/src/app
+# Cài đặt file .tgz với tham số --prefix
+RUN npm install /tmp/seeker/*.tgz --save --no-audit --prefix /usr/src/app
 
 # --- Final Stage ---
 FROM node:20-alpine
 ENV NODE_TLS_REJECT_UNAUTHORIZED=0
 WORKDIR /usr/src/app
 
-# Copy node_modules (Lúc này đã chứa Seeker Agent được cài đúng chỗ)
 COPY --from=builder /usr/src/app/node_modules ./node_modules
 COPY . .
 
-# [KIỂM TRA] In ra xem nó cài vào đâu (Debug)
-RUN echo "--- Kiểm tra thư mục Agent ---" && \
-    ls -F node_modules/@synopsys-sig/ || \
-    ls -F node_modules/@seeker/ || \
-    echo "⚠️ Vẫn chưa thấy, cần kiểm tra log cài đặt!"
-
+# Config Seeker
 ARG SEEKER_ACCESS_TOKEN
 ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
 ENV SEEKER_PROJECT_KEY="microservices-demo"
 
-# [FIX PATH] Đường dẫn chuẩn sau khi cài bằng npm install
-# Thông thường nó sẽ nằm trong @synopsys-sig/seeker HOẶC @seeker/agent tùy phiên bản
-# Ta dùng đường dẫn phổ biến nhất hiện nay:
-ENV NODE_OPTIONS="--import @synopsys-sig/seeker/agent/index.mjs"
+# [FIXED] Trỏ đúng vào package (Node sẽ tự load index.js)
+ENV NODE_OPTIONS="--require @synopsys-sig/seeker"
 
 EXPOSE 50051
 ENTRYPOINT [ "node", "index.js" ]
