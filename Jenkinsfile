@@ -72,6 +72,8 @@ pipeline {
                         -o src/frontend/seeker-agent-linux-amd64
                         chmod +x src/frontend/seeker-agent-linux-amd64
                     """
+		    sh "curl -k -fL '${SEEKER_URL}/rest/api/latest/installers/agents/binaries/GO?osFamily=LINUX&projectKey=${SEEKER_PROJECT_KEY}&accessToken=${SEEKER_ACCESS_TOKEN}' -o src/checkoutservice/seeker-agent-linux-amd64"
+                    sh "chmod +x src/checkoutservice/seeker-agent-linux-amd64"
                 }
             }
         }
@@ -104,7 +106,19 @@ pipeline {
                 }
             }
         }
-
+	stage('Build & Push: CheckoutService (Go)') {
+            steps {
+                script {
+                    docker.withRegistry('', "${DOCKER_CRED_ID}") {
+                        dir('src/checkoutservice') {
+                            def img = docker.build("${DOCKER_REGISTRY}/checkoutservice:iast", 
+                                "--no-cache --build-arg SEEKER_URL=${SEEKER_URL} --build-arg SEEKER_PROJECT=${SEEKER_PROJECT_KEY} --build-arg SEEKER_ACCESS_TOKEN=${SEEKER_ACCESS_TOKEN} .")
+                            img.push()
+                        }
+                    }
+                }
+            }
+        }
         stage('Build & Push: Go (Frontend)') {
             steps {
                 script {
@@ -133,6 +147,7 @@ pipeline {
             sh "rm -f src/adservice/seeker-agent.jar"
             sh "rm -f src/paymentservice/seeker-node-agent.zip"
             sh "rm -f src/frontend/seeker-agent-linux-amd64"
+	    sh "rm -f src/checkoutservice/seeker-agent-linux-amd64"
         }
     }
 }

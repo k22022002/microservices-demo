@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   # =========================================================================
-  # NHÓM 1: CÁC SERVICE CỦA BẠN (CUSTOM IAST)
+  # SERVICE CỦA BẠN (IAST)
   # =========================================================================
 
   frontend:
@@ -10,8 +10,7 @@ services:
     pull_policy: never
     container_name: frontend
     restart: always
-    # [FIX PORT] Đổi sang 8090 để không đụng Jenkins (8080)
-    # Bên trái là cổng Server (8090), Bên phải là cổng Container (8080)
+    # [DUY NHẤT] Chỉ Frontend được mở port ra ngoài (8090 né Jenkins)
     ports:
       - "8095:8080"
     environment:
@@ -24,7 +23,6 @@ services:
       - CHECKOUT_SERVICE_ADDR=checkoutservice:5050
       - AD_SERVICE_ADDR=adservice:9555
       - SHOPPING_ASSISTANT_SERVICE_ADDR=shopping-assistant:8080
-      # Seeker Config
       - SEEKER_SERVER_URL=http://192.168.12.190:8082
       - SEEKER_PROJECT_KEY=microservices-demo
 
@@ -33,8 +31,7 @@ services:
     pull_policy: never
     container_name: paymentservice
     restart: always
-    ports:
-      - "50051:50051"
+    # [ĐÃ XÓA PORTS] Service này chỉ cần giao tiếp nội bộ
     environment:
       - PORT=50051
       - SEEKER_SERVER_URL=http://192.168.12.190:8082
@@ -47,8 +44,7 @@ services:
     pull_policy: never
     container_name: adservice
     restart: always
-    ports:
-      - "9555:9555"
+    # [ĐÃ XÓA PORTS]
     environment:
       - PORT=9555
       - SEEKER_SERVER_URL=http://192.168.12.190:8082
@@ -56,16 +52,15 @@ services:
       - JAVA_TOOL_OPTIONS=-javaagent:/app/seeker-agent.jar
 
   # =========================================================================
-  # NHÓM 2: CÁC SERVICE CỦA GOOGLE (STANDARD)
+  # SERVICE CỦA GOOGLE (GỐC)
   # =========================================================================
 
+  cartservice:
     image: gcr.io/google-samples/microservices-demo/cartservice:v0.10.1
     pull_policy: never
     container_name: cartservice
-    pull_policy: never
     restart: always
-    ports:
-      - "7070:7070"
+    # [ĐÃ XÓA PORTS]
     environment:
       - REDIS_ADDR=redis-cart:6379
 
@@ -74,16 +69,14 @@ services:
     pull_policy: never
     container_name: redis-cart
     restart: always
-    ports:
-      - "6379:6379"
+    # [ĐÃ XÓA PORTS]
 
   currencyservice:
     image: gcr.io/google-samples/microservices-demo/currencyservice:v0.10.1
     pull_policy: never
     container_name: currencyservice
     restart: always
-    ports:
-      - "7000:7000"
+    # [ĐÃ XÓA PORTS]
     environment:
       - PORT=7000
 
@@ -92,8 +85,7 @@ services:
     pull_policy: never
     container_name: productcatalogservice
     restart: always
-    ports:
-      - "3550:3550"
+    # [ĐÃ XÓA PORTS]
     environment:
       - PORT=3550
 
@@ -102,8 +94,7 @@ services:
     pull_policy: never
     container_name: recommendationservice
     restart: always
-    ports:
-      - "8080:8080"
+    # [ĐÃ XÓA PORTS] - Tránh xung đột 8080 với EmailService/Jenkins
     environment:
       - PORT=8080
       - PRODUCT_CATALOG_SERVICE_ADDR=productcatalogservice:3550
@@ -113,8 +104,7 @@ services:
     pull_policy: never
     container_name: shippingservice
     restart: always
-    ports:
-      - "50051:50051"
+    # [ĐÃ XÓA PORTS] - Tránh xung đột 50051 với PaymentService
     environment:
       - PORT=50051
 
@@ -123,8 +113,7 @@ services:
     pull_policy: never
     container_name: checkoutservice
     restart: always
-    ports:
-      - "5050:5050"
+    # [ĐÃ XÓA PORTS]
     environment:
       - PORT=5050
       - PRODUCT_CATALOG_SERVICE_ADDR=productcatalogservice:3550
@@ -139,6 +128,6 @@ services:
     pull_policy: never
     container_name: emailservice
     restart: always
-    # Cổng nội bộ container là 8080, nhưng ta không map ra ngoài host nên không sợ đụng Jenkins
+    # [ĐÃ XÓA PORTS]
     environment:
       - PORT=8080

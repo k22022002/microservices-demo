@@ -12,30 +12,89 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM --platform=$BUILDPLATFORM golang:1.25.6-alpine@sha256:d9b2e14101f27ec8d09674cd01186798d227bb0daec90e032aeb1cd22ac0f029 AS builder
-ARG TARGETOS
-ARG TARGETARCH
+# [CHANGE] Dùng golang:1.22 (Debian standard) tương tự Frontend để tương thích với Seeker
+FROM golang:1.22 AS builder
+
+# [FIX TIME SKEW - BUILDER] Bỏ qua kiểm tra ngày tháng để tránh lỗi APT
+RUN apt-get -o Acquire::Check-Valid-Until=false -o Acquire::Check-Date=false update \
+    && apt-get install -y git 
+
 WORKDIR /src
 
-# restore dependencies
-COPY go.mod go.sum ./
-RUN go mod download
+# [SEEKER] Copy Tool Build Wrapper
+COPY seeker-agent-linux-amd64 /usr/local/bin/seeker-agent-build
+RUN chmod +x /usr/local/bin/seeker-agent-build 
+
+# Copy file định nghĩa dependency
+COPY go.mod go.sum ./ 
+
+# ====================================================================================
+# [CRITICAL FIX] "ĐẠI PHẪU" DOWNGRADE VERSION (Giống hệt Frontend)
+# ====================================================================================
+
+# 1. Hạ cấp version Go xuống 1.22 trong go.mod
+RUN sed -i 's/^go 1\.[0-9]\+/go 1.22/' go.mod \
+    && sed -i '/toolchain/d' go.mod 
+
+# 2. Xóa go.sum để tạo lại bản mới tương thích
+RUN rm -f go.sum 
+
+# 3. REPLACE DEPENDENCIES (Khắc phục lỗi không tương thích phiên bản mới)
+RUN go mod edit -replace cloud.google.com/go=cloud.google.com/go@v0.110.0 \
+    && go mod edit -replace cloud.google.com/go/auth=cloud.google.com/go/auth@v0.13.0 \
+    && go mod edit -replace google.golang.org/api=google.golang.org/api@v0.169.0 \
+    && go mod edit -replace google.golang.org/grpc=google.golang.org/grpc@v1.64.0 \
+    && go mod edit -replace google.golang.org/protobuf=google.golang.org/protobuf@v1.33.0 
+
+# ====================================================================================
+
+# [FIX SSL] Cấu hình proxy và bỏ qua xác thực SSL khi tải thư viện
+ENV GIT_SSL_NO_VERIFY=1
+ENV GONOSUMDB=*
+ENV GOINSECURE=*
+ENV GOPROXY=http://goproxy.cn,direct
+
+# Tidy và Download Dependencies
+RUN go mod tidy || true && go mod download 
+
+# [FIX BACKUP/RESTORE] Đảm bảo go.mod không bị ghi đè bởi bản lỗi từ host
+RUN cp go.mod go.mod.bak \
+    && if [ -f go.sum ]; then cp go.sum go.sum.bak; fi 
 
 COPY . .
 
-# Skaffold passes in debug-oriented compiler flags
-ARG SKAFFOLD_GO_GCFLAGS
-RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} CGO_ENABLED=0 go build -ldflags="-s -w" -gcflags="${SKAFFOLD_GO_GCFLAGS}" -o /checkoutservice .
+RUN mv go.mod.bak go.mod \
+    && if [ -f go.sum.bak ]; then mv go.sum.bak go.sum; else rm -f go.sum; fi 
 
-FROM gcr.io/distroless/static
+# [SEEKER] Build Wrapper
+ARG SEEKER_URL
+ARG SEEKER_PROJECT
+ARG SEEKER_ACCESS_TOKEN
+
+RUN export SEEKER_SERVER_URL=$SEEKER_URL \
+    && export SEEKER_PROJECT_KEY=$SEEKER_PROJECT \
+    && export SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN \
+    && export SEEKER_ENTRY_POINT=/src/main.go \
+    && export SEEKER_COMPOSITE_BUILD=true \
+    && /usr/local/bin/seeker-agent-build go build -v -o /src/checkoutservice . 
+
+# --- Final Stage ---
+# Sử dụng Debian Slim để có glibc cho Seeker Agent
+FROM debian:bookworm-slim
+
+# [FIX TIME SKEW - FINAL STAGE]
+RUN apt-get -o Acquire::Check-Valid-Until=false -o Acquire::Check-Date=false update \
+    && apt-get install -y ca-certificates net-tools \
+    && rm -rf /var/lib/apt/lists/* 
 
 WORKDIR /src
-COPY --from=builder /checkoutservice /src/checkoutservice
+COPY --from=builder /src/checkoutservice /src/checkoutservice
 
-# Definition of this variable is used by 'skaffold debug' to identify a golang binary.
-# Default behavior - a failure prints a stack trace for the current goroutine.
-# See https://golang.org/pkg/runtime/
-ENV GOTRACEBACK=single
+# [SEEKER] Config Runtime
+ARG SEEKER_ACCESS_TOKEN
+ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
+ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
+ENV SEEKER_PROJECT_KEY="microservices-demo" 
 
 EXPOSE 5050
 ENTRYPOINT ["/src/checkoutservice"]
