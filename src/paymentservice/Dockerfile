@@ -39,18 +39,17 @@ ENV NODE_TLS_REJECT_UNAUTHORIZED=0
 WORKDIR /usr/src/app
 COPY package*.json ./
 
-# Dọn dẹp package.json (Bạn đã làm đúng bước này)
+# 2. Xóa các gói Google gây lỗi khỏi package.json
 RUN sed -i '/@google-cloud\/profiler/d' package.json \
     && sed -i '/@google-cloud\/debug-agent/d' package.json \
     && sed -i '/@google-cloud\/trace-agent/d' package.json
 
-# 2. Cài dependencies
+# 3. Cài dependencies thật
 RUN npm install --only=production --no-audit
 
-# 3. Cài Seeker Agent (Phần này đã OK, giữ nguyên)
+# 4. Cài Seeker Agent
 COPY seeker-node-agent.zip /tmp/agent.zip
 RUN unzip -d /tmp/seeker /tmp/agent.zip
-# Cài đặt file .tgz với tham số --prefix
 RUN npm install /tmp/seeker/*.tgz --save --no-audit --prefix /usr/src/app
 
 # --- Final Stage ---
@@ -58,27 +57,26 @@ FROM node:20-alpine
 ENV NODE_TLS_REJECT_UNAUTHORIZED=0
 WORKDIR /usr/src/app
 
+# Copy node_modules từ builder (Lúc này CHƯA CÓ các gói giả)
 COPY --from=builder /usr/src/app/node_modules ./node_modules
 COPY . .
 
-# [FIX CRASH] Xóa dòng code gọi Google Profiler trong index.js
-# Lệnh này tìm dòng chứa "@google-cloud" và xóa nó đi để App không require gói đã thiếu
-RUN sed -i '/@google-cloud\/profiler/d' index.js \
-    && sed -i '/@google-cloud\/debug-agent/d' index.js \
-    && sed -i '/@google-cloud\/trace-agent/d' index.js
+# [FIX FINAL - BẤT TỬ] TẠO MODULE GIẢ NGAY TẠI ĐÂY
+# Tạo ở bước này thì không ai xóa được nữa.
+RUN mkdir -p node_modules/@google-cloud/profiler \
+    && echo "module.exports = { start: function() { console.log('Mock Profiler'); return {}; } };" > node_modules/@google-cloud/profiler/index.js
 
-# [FIX CRASH] Đặt biến môi trường để tắt Profiler (cho chắc ăn)
-ENV DISABLE_PROFILER=1
-ENV DISABLE_DEBUGGER=1
-ENV DISABLE_TRACING=1
+RUN mkdir -p node_modules/@google-cloud/debug-agent \
+    && echo "module.exports = { start: function() { console.log('Mock Debugger'); return {}; } };" > node_modules/@google-cloud/debug-agent/index.js
 
-# Config Seeker (Đã OK)
+RUN mkdir -p node_modules/@google-cloud/trace-agent \
+    && echo "module.exports = { start: function() { console.log('Mock Tracer'); return {}; } };" > node_modules/@google-cloud/trace-agent/index.js
+
+# Config Seeker
 ARG SEEKER_ACCESS_TOKEN
 ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
 ENV SEEKER_PROJECT_KEY="microservices-demo"
-
-# Trỏ đúng vào package (Đã OK)
 ENV NODE_OPTIONS="--require @synopsys-sig/seeker"
 
 EXPOSE 50051
