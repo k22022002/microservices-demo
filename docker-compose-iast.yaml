@@ -109,7 +109,7 @@ services:
       - PORT=50051
 
   checkoutservice:
-    image: gcr.io/google-samples/microservices-demo/checkoutservice:v0.10.1
+    image: kienngo22022002/checkoutservice:iast
     pull_policy: never
     container_name: checkoutservice
     restart: always
@@ -122,7 +122,8 @@ services:
       - EMAIL_SERVICE_ADDR=emailservice:8080
       - CURRENCY_SERVICE_ADDR=currencyservice:7000
       - CART_SERVICE_ADDR=cartservice:7070
-
+      - SEEKER_SERVER_URL=http://192.168.12.190:8082
+      - SEEKER_PROJECT_KEY=microservices-demo
   emailservice:
     image: gcr.io/google-samples/microservices-demo/emailservice:v0.10.1
     pull_policy: never
