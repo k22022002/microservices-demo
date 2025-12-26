@@ -33,8 +33,8 @@
 FROM golang:1.22 AS builder
 
 # Không cần sed repository vì đây là Debian chuẩn
-RUN apt-get update && apt-get install -y git
-
+RUN apt-get -o Acquire::Check-Valid-Until=false -o Acquire::Check-Date=false update \
+    && apt-get install -y git
 WORKDIR /src
 
 # [SEEKER] Copy Tool
