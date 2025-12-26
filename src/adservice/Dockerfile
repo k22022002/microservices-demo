@@ -75,6 +75,8 @@ allprojects {\n\
 }\n" > /tmp/init.gradle \
  && gradle installDist -x test --no-daemon --info --stacktrace --init-script /tmp/init.gradle
 
+# ... (Giữ nguyên phần đầu của Dockerfile (3).txt) ...
+
 # --- Final Stage ---
 FROM eclipse-temurin:21-jre-alpine
 
@@ -84,6 +86,11 @@ WORKDIR /app
 COPY seeker-agent.jar /app/seeker-agent.jar
 
 # [SEEKER] 2. Config
+# --- [ĐOẠN CẦN SỬA/THÊM MỚI] ---
+ARG SEEKER_ACCESS_TOKEN
+ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
+# ------------------------------
+
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
 ENV SEEKER_PROJECT_KEY="microservices-demo"
 ENV JAVA_TOOL_OPTIONS="-javaagent:/app/seeker-agent.jar"

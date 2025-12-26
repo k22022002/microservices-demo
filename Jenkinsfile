@@ -8,46 +8,71 @@ pipeline {
         DOCKER_REGISTRY = 'kienngo22022002'
         DOCKER_CRED_ID = 'docker-hub-credentials-id'
 
-        // --- FIX LỖI SSL & TIME (QUAN TRỌNG) ---
-        // Tắt kiểm tra SSL cho Git (tránh lỗi khi clone code)
+        // --- FIX LỖI SSL & TIME ---
         GIT_SSL_NO_VERIFY = '1'
-        // Tắt kiểm tra SSL cho các lệnh Node.js/NPM nếu chạy trên agent
         NODE_TLS_REJECT_UNAUTHORIZED = '0'
     }
 
     stages {
         stage('Checkout Code') {
             steps {
-                // Cấu hình git global để chắc chắn không check SSL trước khi checkout
                 sh 'git config --global http.sslVerify false'
                 checkout scm
             }
         }
 
-        stage('Download Seeker Agents (Bypass SSL)') {
+        stage('Download Seeker Agents (Standard Guide)') {
             steps {
-                script {
-                    echo "--- Downloading Agents (Ignoring SSL/Time errors) ---"
-                    
-                    // 1. JAVA: Tải vào src/adservice để Dockerfile COPY
-                    // Sử dụng cờ -k để bỏ qua kiểm tra chứng chỉ
-                    sh """
-                        curl -k -X GET -fL "${SEEKER_URL}/rest/api/latest/installers/agents/binaries/JAVA?projectKey=${SEEKER_PROJECT_KEY}" \
-                        -o src/adservice/seeker-agent.jar
-                    """
+                // Sử dụng plugin Credentials Binding để lấy Token an toàn
+                withCredentials([string(credentialsId: 'seeker-agent-token', variable: 'SEEKER_ACCESS_TOKEN')]) {
+                    script {
+                        echo "--- Downloading Agents via Installer Scripts ---"
 
-                    // 2. NODE.JS: Tải vào src/paymentservice
-                    sh """
-                        curl -k -X GET -fL "${SEEKER_URL}/rest/api/latest/installers/agents/binaries/NODEJS?projectKey=${SEEKER_PROJECT_KEY}" \
-                        -o src/paymentservice/seeker-node-agent.zip
-                    """
-                    
-                    // 3. GO: Tải vào src/frontend
-                    // Lưu ý: Dockerfile Go của bạn mong đợi tên file là 'seeker-agent-linux-amd64'
-                    sh """
-                        curl -k -X GET -fL "${SEEKER_URL}/rest/api/latest/installers/agents/binaries/GO?osFamily=LINUX&projectKey=${SEEKER_PROJECT_KEY}" \
-                        -o src/frontend/seeker-agent-linux-amd64
-                    """
+                        // ==================================================================================
+                        // 1. JAVA AGENT (AdService)
+                        // ==================================================================================
+                        echo "Downloading Java Agent..."
+                        // Tải script cài đặt
+                        sh """
+                            curl -k -sSL -o java_installer.sh "${SEEKER_URL}/rest/api/latest/installers/agents/scripts/JAVA?osFamily=LINUX&downloadWith=curl&webServer=ALL&flavor=DEFAULT&projectKey=${SEEKER_PROJECT_KEY}&accessToken=${SEEKER_ACCESS_TOKEN}"
+                            chmod +x java_installer.sh
+                        """
+                        // Chạy script để tải file .jar, sau đó di chuyển vào src/adservice
+                        sh """
+                            ./java_installer.sh --download-only
+                            mv seeker-agent.jar src/adservice/seeker-agent.jar || echo "File not found or already moved"
+                        """
+
+                        // ==================================================================================
+                        // 2. NODE.JS AGENT (PaymentService)
+                        // ==================================================================================
+                        echo "Downloading Node.js Agent..."
+                        // URL dựa trên hình ảnh image_b6ec1b.png
+                        sh """
+                            curl -k -sSL -o node_installer.sh "${SEEKER_URL}/rest/api/latest/installers/agents/scripts/NODEJS?osFamily=LINUX&downloadWith=curl&webServer=NODEJS_DOWNLOAD&flavor=DEFAULT&projectKey=${SEEKER_PROJECT_KEY}&accessToken=${SEEKER_ACCESS_TOKEN}"
+                            chmod +x node_installer.sh
+                        """
+                        // Chạy script, nó sẽ tải về seeker-node-agent.zip
+                        sh """
+                            ./node_installer.sh
+                            mv seeker-node-agent.zip src/paymentservice/seeker-node-agent.zip
+                        """
+
+                        // ==================================================================================
+                        // 3. GO AGENT (Frontend)
+                        // ==================================================================================
+                        echo "Downloading Go Agent..."
+                        // URL dựa trên hình ảnh image_b6ef84.png
+                        sh """
+                            curl -k -sSL -o go_installer.sh "${SEEKER_URL}/rest/api/latest/installers/agents/scripts/GO?osFamily=LINUX&downloadWith=curl&webServer=GO_LINUX_AMD64_DEFAULT&flavor=DEFAULT&projectKey=${SEEKER_PROJECT_KEY}&accessToken=${SEEKER_ACCESS_TOKEN}"
+                            chmod +x go_installer.sh
+                        """
+                        // Chạy script, nó sẽ tải về seeker-agent-linux-amd64
+                        sh """
+                            ./go_installer.sh
+                            mv seeker-agent-linux-amd64 src/frontend/seeker-agent-linux-amd64
+                        """
+                    }
                 }
             }
         }
@@ -56,10 +81,10 @@ pipeline {
             steps {
                 script {
                     docker.withRegistry('', "${DOCKER_CRED_ID}") {
-                        // Dockerfile đã có lệnh COPY seeker-agent.jar
-                        // Lưu ý: Đảm bảo file Dockerfile.txt đã được đổi tên thành Dockerfile trong thư mục src/adservice
                         dir('src/adservice') {
-                            def img = docker.build("${DOCKER_REGISTRY}/adservice:iast", ".")
+                            // Cần truyền TOKEN vào build args để config lúc runtime
+                            def img = docker.build("${DOCKER_REGISTRY}/adservice:iast", 
+                                "--build-arg SEEKER_ACCESS_TOKEN=${SEEKER_ACCESS_TOKEN} .")
                             img.push()
                         }
                     }
@@ -71,9 +96,9 @@ pipeline {
             steps {
                 script {
                     docker.withRegistry('', "${DOCKER_CRED_ID}") {
-                        // Dockerfile đã có lệnh COPY seeker-node-agent.zip
                         dir('src/paymentservice') {
-                            def img = docker.build("${DOCKER_REGISTRY}/paymentservice:iast", ".")
+                            def img = docker.build("${DOCKER_REGISTRY}/paymentservice:iast", 
+                                "--build-arg SEEKER_ACCESS_TOKEN=${SEEKER_ACCESS_TOKEN} .")
                             img.push()
                         }
                     }
@@ -85,10 +110,10 @@ pipeline {
             steps {
                 script {
                     docker.withRegistry('', "${DOCKER_CRED_ID}") {
-                        // Dockerfile Go cần Build Args để chạy IAST tool lúc build
                         dir('src/frontend') {
+                            // Go cần nhiều tham số hơn
                             def img = docker.build("${DOCKER_REGISTRY}/frontend:iast", 
-                                "--build-arg SEEKER_URL=${SEEKER_URL} --build-arg SEEKER_PROJECT=${SEEKER_PROJECT_KEY} .")
+                                "--build-arg SEEKER_URL=${SEEKER_URL} --build-arg SEEKER_PROJECT=${SEEKER_PROJECT_KEY} --build-arg SEEKER_ACCESS_TOKEN=${SEEKER_ACCESS_TOKEN} .")
                             img.push()
                         }
                     }
@@ -100,13 +125,13 @@ pipeline {
     post {
         always {
             echo "--- Cleaning up Agents ---"
-            // Xóa file agent để tránh commit nhầm vào git sau này
             sh "rm -f src/adservice/seeker-agent.jar"
             sh "rm -f src/paymentservice/seeker-node-agent.zip"
             sh "rm -f src/frontend/seeker-agent-linux-amd64"
+            sh "rm -f *.sh" // Xóa các script cài đặt tạm
         }
         success {
-            echo "✅ Build thành công IAST images. Hệ thống đã bypass SSL/Time check."
+            echo "✅ Build thành công IAST images với Standard Installer Scripts."
         }
     }
 }

@@ -62,6 +62,11 @@ COPY --from=builder /usr/src/app/seeker ./seeker
 COPY . .
 
 # [SEEKER] Config
+# --- [ĐOẠN CẦN SỬA/THÊM MỚI] ---
+ARG SEEKER_ACCESS_TOKEN
+ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
+# ------------------------------
+
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
 ENV SEEKER_PROJECT_KEY="microservices-demo"
 ENV NODE_OPTIONS="--import ./seeker/node_modules/@synopsys-sig/seeker/agent/index.mjs"

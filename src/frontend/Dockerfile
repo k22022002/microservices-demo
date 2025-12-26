@@ -94,15 +94,16 @@ RUN mv go.mod.bak go.mod \
 # [SEEKER] Build Wrapper
 ARG SEEKER_URL="http://192.168.12.190:8082"
 ARG SEEKER_PROJECT="microservices-demo"
+# [THÊM] Nhận Token ở Builder Stage
+ARG SEEKER_ACCESS_TOKEN
 
 ENV CGO_ENABLED=0 
 
 # [FIX HANG & ENTRY POINT]
-# 1. SEEKER_ENTRY_POINT: Chỉ định file main.go để agent biết bắt đầu từ đâu.
-# 2. SEEKER_COMPOSITE_BUILD=true: Chế độ OFFLINE. Agent sẽ không cố kết nối server lúc build -> Tránh treo.
-# 3. go build -v: Thêm cờ verbose để in ra log chi tiết (nếu vẫn treo sẽ biết treo ở package nào).
+# [SỬA] Thêm export SEEKER_ACCESS_TOKEN
 RUN export SEEKER_SERVER_URL=$SEEKER_URL \
     && export SEEKER_PROJECT_KEY=$SEEKER_PROJECT \
+    && export SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN \
     && export SEEKER_ENTRY_POINT=/src/main.go \
     && export SEEKER_COMPOSITE_BUILD=true \
     && /usr/local/bin/seeker-agent-build go build -v -o /go/bin/frontend .
@@ -120,9 +121,24 @@ COPY ./templates ./templates
 COPY ./static ./static
 
 # [SEEKER] Runtime Config
+# --- [ĐOẠN CẦN SỬA/THÊM MỚI] ---
+ARG SEEKER_ACCESS_TOKEN
+ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
+# ------------------------------
+
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
 ENV SEEKER_PROJECT_KEY="microservices-demo"
 ENV GOTRACEBACK=single
+
+# [QUAN TRỌNG] FIX LỖI APP CRASH (Panic)
+# Bạn cần trỏ đúng địa chỉ service AdService/ProductCatalog trong Kubernetes/Docker của bạn
+ENV PRODUCT_CATALOG_SERVICE_ADDR="adservice:3550"
+ENV CURRENCY_SERVICE_ADDR="currencyservice:7000"
+ENV CART_SERVICE_ADDR="cartservice:7070"
+ENV RECOMMENDATION_SERVICE_ADDR="recommendationservice:8080"
+ENV SHIPPING_SERVICE_ADDR="shippingservice:50051"
+ENV CHECKOUT_SERVICE_ADDR="checkoutservice:5050"
+ENV AD_SERVICE_ADDR="adservice:9555"
 
 EXPOSE 8080
 ENTRYPOINT ["/src/server"]
