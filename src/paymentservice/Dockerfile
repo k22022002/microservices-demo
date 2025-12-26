@@ -41,26 +41,24 @@ COPY package*.json ./
 RUN sed -i '/@google-cloud\/profiler/d' package.json \
     && sed -i '/@google-cloud\/debug-agent/d' package.json
 
-# [SEEKER] Cài đặt Agent
-COPY seeker-node-agent.zip /tmp/seeker-node-agent.zip
+# [QUAN TRỌNG] 1. Cài đặt App Dependencies TRƯỚC
+# Để tránh việc npm install sau này xóa mất Seeker Agent
+RUN npm install --only=production --no-audit
 
-# 1. Giải nén
+# [SEEKER] 2. Cài đặt Agent SAU
+COPY seeker-node-agent.zip /tmp/seeker-node-agent.zip
 RUN unzip -d /tmp/seeker /tmp/seeker-node-agent.zip
 
-# 2. [FIX CRITICAL] Cài đặt Agent vào Root node_modules với tham số --prefix
-#    Lỗi cũ: "npm install run without required argument --prefix"
-#    Giải pháp: Thêm "--prefix /usr/src/app"
-RUN find /tmp/seeker -name "seeker-agent.tgz" -exec npm install {} --prefix /usr/src/app --save --no-audit \;
-
-# 3. Cài đặt App Dependencies (Production only)
-RUN npm install --only=production --no-audit
+# Tìm file tgz và cài đặt thẳng vào node_modules hiện tại
+# Dùng flag --no-save để không sửa package.json (tránh xung đột lockfile)
+RUN find /tmp/seeker -name "seeker-agent.tgz" -exec npm install {} --prefix /usr/src/app --no-save --no-audit \;
 
 # --- Final Stage ---
 FROM node:20-alpine
 ENV NODE_TLS_REJECT_UNAUTHORIZED=0
 WORKDIR /usr/src/app
 
-# Copy node_modules của App (Đã bao gồm Seeker Agent bên trong)
+# Copy node_modules (đã bao gồm Seeker Agent)
 COPY --from=builder /usr/src/app/node_modules ./node_modules
 
 COPY . .
@@ -71,8 +69,7 @@ ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
 ENV SEEKER_PROJECT_KEY="microservices-demo"
 
-# [FIX PATH] Sử dụng import chuẩn từ node_modules
-# Vì đã cài vào root, ta không cần đường dẫn dài dòng "/usr/src/app/seeker/..." nữa
+# [FIX PATH] Import module Seeker
 ENV NODE_OPTIONS="--import @synopsys-sig/seeker/agent/index.mjs"
 
 EXPOSE 50051

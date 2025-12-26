@@ -28,21 +28,22 @@ pipeline {
                 script {
                     echo "--- Downloading Agents with Check ---"
                     
-                    // 1. JAVA
-                    // Thêm flag -f để fail nếu server trả về lỗi 404/500
-                    sh """
+		    sh """
+                        # Xóa file cũ nếu có
+                        rm -f src/adservice/seeker-agent.jar
+                        
+                        # Tải file
                         curl -k -fL "${SEEKER_URL}/rest/api/latest/installers/agents/binaries/JAVA?projectKey=${SEEKER_PROJECT_KEY}&accessToken=${SEEKER_ACCESS_TOKEN}" \
                         -o src/adservice/seeker-agent.jar
                         
-                        # Verify file (Quan trọng)
-                        if unzip -t src/adservice/seeker-agent.jar; then
-                            echo "Java Agent downloaded successfully"
-                        else
-                            echo "ERROR: Java Agent file is corrupted!"
+                        # [QUAN TRỌNG] Kiểm tra xem file có phải là ZIP hợp lệ không
+                        if ! unzip -t src/adservice/seeker-agent.jar > /dev/null; then
+                            echo "ERROR: File Java Agent tải về bị lỗi (Corrupted/HTML). Dừng build!"
+                            cat src/adservice/seeker-agent.jar # In nội dung file lỗi để debug
                             exit 1
                         fi
+                        echo "Java Agent downloaded OK."
                     """
-
                     // 2. NODE.JS
                     sh """
                         curl -k -fL "${SEEKER_URL}/rest/api/latest/installers/agents/binaries/NODEJS?projectKey=${SEEKER_PROJECT_KEY}&accessToken=${SEEKER_ACCESS_TOKEN}" \
