@@ -6,11 +6,12 @@ pipeline {
         SEEKER_PROJECT_KEY = 'microservices-demo'
         DOCKER_REGISTRY = 'kienngo22022002'
         DOCKER_CRED_ID = 'docker-hub-credentials-id'
-        
-        // [QUAN TRỌNG] Lấy Token ở đây để dùng được cho TOÀN BỘ các stages (Download + Build)
+
+        // [FIX 1] Đặt Token ở đây để sửa lỗi "MissingPropertyException"
+        // Biến này giờ sẽ dùng được ở cả stage Download và stage Build
         SEEKER_ACCESS_TOKEN = credentials('seeker-agent-token')
 
-        // Cấu hình bypass SSL
+        // Bypass SSL
         GIT_SSL_NO_VERIFY = '1'
         NODE_TLS_REJECT_UNAUTHORIZED = '0'
     }
@@ -23,37 +24,31 @@ pipeline {
             }
         }
 
-        stage('Download Seeker Agents') {
+        stage('Download Seeker Agents (Direct Binary)') {
             steps {
                 script {
-                    echo "--- Downloading Agent Binaries Directly ---"
-
-                    // 1. JAVA AGENT (AdService)
+                    echo "--- Downloading Agents ---"
+                    
+                    // [FIX 2] Dùng API /binaries/ thay vì /scripts/ để lấy file chuẩn
+                    // Thêm cờ -f để báo lỗi ngay nếu server trả về 404/500
+                    
+                    // 1. JAVA
                     sh """
-                       curl -k -fL "${SEEKER_URL}/rest/api/latest/installers/agents/binaries/JAVA?projectKey=${SEEKER_PROJECT_KEY}&accessToken=${SEEKER_ACCESS_TOKEN}" \
-                       -o seeker-agent.jar
-                       
-                       # Di chuyển vào thư mục build context
-                       mv seeker-agent.jar src/adservice/seeker-agent.jar
+                        curl -k -fL "${SEEKER_URL}/rest/api/latest/installers/agents/binaries/JAVA?projectKey=${SEEKER_PROJECT_KEY}&accessToken=${SEEKER_ACCESS_TOKEN}" \
+                        -o src/adservice/seeker-agent.jar
                     """
 
-                    // 2. NODE.JS AGENT (PaymentService)
+                    // 2. NODE.JS (Sửa lỗi MODULE_NOT_FOUND bằng cách tải đúng file zip)
                     sh """
-                       curl -k -fL "${SEEKER_URL}/rest/api/latest/installers/agents/binaries/NODEJS?projectKey=${SEEKER_PROJECT_KEY}&accessToken=${SEEKER_ACCESS_TOKEN}" \
-                       -o seeker-node-agent.zip
-                       
-                       # Di chuyển vào thư mục build context
-                       mv seeker-node-agent.zip src/paymentservice/seeker-node-agent.zip
+                        curl -k -fL "${SEEKER_URL}/rest/api/latest/installers/agents/binaries/NODEJS?projectKey=${SEEKER_PROJECT_KEY}&accessToken=${SEEKER_ACCESS_TOKEN}" \
+                        -o src/paymentservice/seeker-node-agent.zip
                     """
-
-                    // 3. GO AGENT (Frontend)
+                    
+                    // 3. GO
                     sh """
-                       curl -k -fL "${SEEKER_URL}/rest/api/latest/installers/agents/binaries/GO?osFamily=LINUX&projectKey=${SEEKER_PROJECT_KEY}&accessToken=${SEEKER_ACCESS_TOKEN}" \
-                       -o seeker-agent-linux-amd64
-                       
-                       chmod +x seeker-agent-linux-amd64
-                       # Di chuyển vào thư mục build context
-                       mv seeker-agent-linux-amd64 src/frontend/seeker-agent-linux-amd64
+                        curl -k -fL "${SEEKER_URL}/rest/api/latest/installers/agents/binaries/GO?osFamily=LINUX&projectKey=${SEEKER_PROJECT_KEY}&accessToken=${SEEKER_ACCESS_TOKEN}" \
+                        -o src/frontend/seeker-agent-linux-amd64
+                        chmod +x src/frontend/seeker-agent-linux-amd64
                     """
                 }
             }
@@ -64,7 +59,7 @@ pipeline {
                 script {
                     docker.withRegistry('', "${DOCKER_CRED_ID}") {
                         dir('src/adservice') {
-                            // Bây giờ biến SEEKER_ACCESS_TOKEN đã có thể truy cập ở đây
+                            // Truyền Token vào để Agent chạy runtime
                             def img = docker.build("${DOCKER_REGISTRY}/adservice:iast", 
                                 "--build-arg SEEKER_ACCESS_TOKEN=${SEEKER_ACCESS_TOKEN} .")
                             img.push()
@@ -105,14 +100,10 @@ pipeline {
 
     post {
         always {
-            echo "--- Cleaning up ---"
-            // Xóa file agent để tránh rác (dùng -f để không lỗi nếu file không tồn tại)
+            // Dọn dẹp
             sh "rm -f src/adservice/seeker-agent.jar"
             sh "rm -f src/paymentservice/seeker-node-agent.zip"
             sh "rm -f src/frontend/seeker-agent-linux-amd64"
-        }
-        success {
-            echo "✅ Build thành công IAST images."
         }
     }
 }

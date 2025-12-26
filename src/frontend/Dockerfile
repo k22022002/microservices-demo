@@ -92,15 +92,11 @@ RUN mv go.mod.bak go.mod \
     && if [ -f go.sum.bak ]; then mv go.sum.bak go.sum; else rm -f go.sum; fi
 
 # [SEEKER] Build Wrapper
-ARG SEEKER_URL="http://192.168.12.190:8082"
-ARG SEEKER_PROJECT="microservices-demo"
-# [THÊM] Nhận Token ở Builder Stage
+ARG SEEKER_URL
+ARG SEEKER_PROJECT
 ARG SEEKER_ACCESS_TOKEN
 
-ENV CGO_ENABLED=0 
-
-# [FIX HANG & ENTRY POINT]
-# [SỬA] Thêm export SEEKER_ACCESS_TOKEN
+# Export các biến cần thiết cho build wrapper
 RUN export SEEKER_SERVER_URL=$SEEKER_URL \
     && export SEEKER_PROJECT_KEY=$SEEKER_PROJECT \
     && export SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN \
@@ -110,28 +106,20 @@ RUN export SEEKER_SERVER_URL=$SEEKER_URL \
 
 # --- Final Stage ---
 FROM alpine:latest
-
-# [FIX SSL] Chuyen Alpine repo sang HTTP
-RUN sed -i 's/https/http/g' /etc/apk/repositories \
-    && apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates
 
 WORKDIR /src
 COPY --from=builder /go/bin/frontend /src/server
 COPY ./templates ./templates
 COPY ./static ./static
 
-# [SEEKER] Runtime Config
-# --- [ĐOẠN CẦN SỬA/THÊM MỚI] ---
+# [SEEKER] Config
 ARG SEEKER_ACCESS_TOKEN
 ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
-# ------------------------------
-
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
 ENV SEEKER_PROJECT_KEY="microservices-demo"
-ENV GOTRACEBACK=single
 
-# [QUAN TRỌNG] FIX LỖI APP CRASH (Panic)
-# Bạn cần trỏ đúng địa chỉ service AdService/ProductCatalog trong Kubernetes/Docker của bạn
+# [FIX PANIC] Thêm các biến môi trường bắt buộc cho App Frontend
 ENV PRODUCT_CATALOG_SERVICE_ADDR="adservice:3550"
 ENV CURRENCY_SERVICE_ADDR="currencyservice:7000"
 ENV CART_SERVICE_ADDR="cartservice:7070"
@@ -139,6 +127,7 @@ ENV RECOMMENDATION_SERVICE_ADDR="recommendationservice:8080"
 ENV SHIPPING_SERVICE_ADDR="shippingservice:50051"
 ENV CHECKOUT_SERVICE_ADDR="checkoutservice:5050"
 ENV AD_SERVICE_ADDR="adservice:9555"
+# Lưu ý: "adservice", "currencyservice"... là tên service (host) trong docker-compose/k8s của bạn
 
 EXPOSE 8080
 ENTRYPOINT ["/src/server"]

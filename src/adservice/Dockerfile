@@ -82,20 +82,16 @@ FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
-# [SEEKER] 1. Copy Agent
+# Copy Agent từ Jenkins workspace
 COPY seeker-agent.jar /app/seeker-agent.jar
 
-# [SEEKER] 2. Config
-# --- [ĐOẠN CẦN SỬA/THÊM MỚI] ---
+# [SEEKER] Config
 ARG SEEKER_ACCESS_TOKEN
 ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
-# ------------------------------
-
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
 ENV SEEKER_PROJECT_KEY="microservices-demo"
 ENV JAVA_TOOL_OPTIONS="-javaagent:/app/seeker-agent.jar"
 
-# Copy kết quả build từ stage trước
 COPY --from=builder /app/build/install/hipstershop /app
 
 EXPOSE 9555
