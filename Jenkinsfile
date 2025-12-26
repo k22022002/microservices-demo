@@ -36,6 +36,7 @@ pipeline {
                     sh """
                         curl -k -fL "${SEEKER_URL}/rest/api/latest/installers/agents/binaries/JAVA?projectKey=${SEEKER_PROJECT_KEY}&accessToken=${SEEKER_ACCESS_TOKEN}" \
                         -o src/adservice/seeker-agent.jar
+			unzip -t src/adservice/seeker-agent.jar || echo "WARNING: File JAR có thể bị lỗi!"
                     """
 
                     // 2. NODE.JS (Sửa lỗi MODULE_NOT_FOUND bằng cách tải đúng file zip)
@@ -54,21 +55,20 @@ pipeline {
             }
         }
 
-        stage('Build & Push: Java (AdService)') {
-            steps {
-                script {
-                    docker.withRegistry('', "${DOCKER_CRED_ID}") {
-                        dir('src/adservice') {
-                            // Truyền Token vào để Agent chạy runtime
-                            def img = docker.build("${DOCKER_REGISTRY}/adservice:iast", 
-                                "--build-arg SEEKER_ACCESS_TOKEN=${SEEKER_ACCESS_TOKEN} .")
-                            img.push()
-                        }
-                    }
+	stage('Build & Push: Java (AdService)') {
+    steps {
+        script {
+            docker.withRegistry('', "${DOCKER_CRED_ID}") {
+                dir('src/adservice') {
+                    // [THÊM] --no-cache để đảm bảo copy file jar mới nhất
+                    def img = docker.build("${DOCKER_REGISTRY}/adservice:iast", 
+                        "--no-cache --build-arg SEEKER_ACCESS_TOKEN=${SEEKER_ACCESS_TOKEN} .")
+                    img.push()
                 }
             }
         }
-
+    }
+}
         stage('Build & Push: Node.js (PaymentService)') {
             steps {
                 script {

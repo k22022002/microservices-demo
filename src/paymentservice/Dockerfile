@@ -33,8 +33,9 @@ COPY seeker-node-agent.zip /tmp/seeker-node-agent.zip
 
 # 2. Giải nén vào thư mục 'seeker'
 RUN mkdir -p seeker \
-    && unzip -d seeker /tmp/seeker-node-agent.zip
-
+    && unzip -d seeker /tmp/seeker-node-agent.zip \
+    # Tìm file .tgz bất kể nó nằm ở đâu sau khi giải nén và cài đặt nó
+    && find seeker -name "seeker-agent.tgz" -exec npm install {} --prefix seeker --save --no-audit \;
 # 3. Cài đặt agent dependencies vào thư mục seeker
 # Lưu ý: --prefix seeker là quan trọng để nó tạo node_modules bên trong folder seeker
 RUN npm install ./seeker/seeker-agent.tgz --prefix seeker --save --no-audit
