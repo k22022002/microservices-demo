@@ -39,13 +39,25 @@ RUN sed -i 's/^go 1\.[0-9]\+/go 1.22/' go.mod \
 # 2. Xóa go.sum để tạo lại bản mới tương thích
 RUN rm -f go.sum 
 
-# 3. REPLACE DEPENDENCIES (Khắc phục lỗi không tương thích phiên bản mới)
+# --- Google Cloud Core ---
 RUN go mod edit -replace cloud.google.com/go=cloud.google.com/go@v0.110.0 \
     && go mod edit -replace cloud.google.com/go/auth=cloud.google.com/go/auth@v0.13.0 \
+    && go mod edit -replace cloud.google.com/go/auth/oauth2adapt=cloud.google.com/go/auth/oauth2adapt@v0.2.0 \
+    && go mod edit -replace cloud.google.com/go/compute/metadata=cloud.google.com/go/compute/metadata@v0.2.3 \
+    && go mod edit -replace cloud.google.com/go/profiler=cloud.google.com/go/profiler@v0.4.0
+
+# --- Google APIs & GRPC ---
+RUN go mod edit -replace github.com/googleapis/gax-go/v2=github.com/googleapis/gax-go/v2@v2.12.0 \
     && go mod edit -replace google.golang.org/api=google.golang.org/api@v0.169.0 \
     && go mod edit -replace google.golang.org/grpc=google.golang.org/grpc@v1.64.0 \
-    && go mod edit -replace google.golang.org/protobuf=google.golang.org/protobuf@v1.33.0 
+    && go mod edit -replace google.golang.org/protobuf=google.golang.org/protobuf@v1.33.0
 
+# --- OpenTelemetry (BẮT BUỘC PHẢI CÓ ĐỂ FIX LỖI GO 1.24) ---
+# Dòng dưới cùng chính là dòng fix lỗi bạn vừa gặp
+RUN go mod edit -replace go.opentelemetry.io/otel=go.opentelemetry.io/otel@v1.24.0 \
+    && go mod edit -replace go.opentelemetry.io/otel/sdk=go.opentelemetry.io/otel/sdk@v1.24.0 \
+    && go mod edit -replace go.opentelemetry.io/otel/trace=go.opentelemetry.io/otel/trace@v1.24.0 \
+    && go mod edit -replace go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc=go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc@v0.49.0
 # ====================================================================================
 
 # [FIX SSL] Cấu hình proxy và bỏ qua xác thực SSL khi tải thư viện
