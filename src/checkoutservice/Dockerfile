@@ -113,6 +113,17 @@ ARG SEEKER_ACCESS_TOKEN
 ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
 ENV SEEKER_PROJECT_KEY="microservices-demo" 
+ENV PORT=5050
 
+# Đây là biến bị lỗi trong log của bạn:
+ENV SHIPPING_SERVICE_ADDR="shippingservice:50051"
+
+# Các biến khác thường cũng được yêu cầu bởi CheckoutService (thêm vào để tránh lỗi tiếp theo):
+ENV PRODUCT_CATALOG_SERVICE_ADDR="productcatalogservice:3550"
+ENV CURRENCY_SERVICE_ADDR="currencyservice:7000"
+ENV CART_SERVICE_ADDR="cartservice:7000"
+ENV EMAIL_SERVICE_ADDR="emailservice:8080"
+ENV PAYMENT_SERVICE_ADDR="paymentservice:50051"
 EXPOSE 5050
+
 ENTRYPOINT ["/src/checkoutservice"]
