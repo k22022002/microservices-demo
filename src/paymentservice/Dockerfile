@@ -39,13 +39,15 @@ ENV NODE_TLS_REJECT_UNAUTHORIZED=0
 WORKDIR /usr/src/app
 COPY package*.json ./
 
+# Dọn dẹp package.json (Bạn đã làm đúng bước này)
 RUN sed -i '/@google-cloud\/profiler/d' package.json \
-    && sed -i '/@google-cloud\/debug-agent/d' package.json
+    && sed -i '/@google-cloud\/debug-agent/d' package.json \
+    && sed -i '/@google-cloud\/trace-agent/d' package.json
 
 # 2. Cài dependencies
 RUN npm install --only=production --no-audit
 
-# 3. Cài Seeker Agent (Giữ nguyên phần này vì đã OK)
+# 3. Cài Seeker Agent (Phần này đã OK, giữ nguyên)
 COPY seeker-node-agent.zip /tmp/agent.zip
 RUN unzip -d /tmp/seeker /tmp/agent.zip
 # Cài đặt file .tgz với tham số --prefix
@@ -59,13 +61,24 @@ WORKDIR /usr/src/app
 COPY --from=builder /usr/src/app/node_modules ./node_modules
 COPY . .
 
-# Config Seeker
+# [FIX CRASH] Xóa dòng code gọi Google Profiler trong index.js
+# Lệnh này tìm dòng chứa "@google-cloud" và xóa nó đi để App không require gói đã thiếu
+RUN sed -i '/@google-cloud\/profiler/d' index.js \
+    && sed -i '/@google-cloud\/debug-agent/d' index.js \
+    && sed -i '/@google-cloud\/trace-agent/d' index.js
+
+# [FIX CRASH] Đặt biến môi trường để tắt Profiler (cho chắc ăn)
+ENV DISABLE_PROFILER=1
+ENV DISABLE_DEBUGGER=1
+ENV DISABLE_TRACING=1
+
+# Config Seeker (Đã OK)
 ARG SEEKER_ACCESS_TOKEN
 ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
 ENV SEEKER_PROJECT_KEY="microservices-demo"
 
-# [FIXED] Trỏ đúng vào package (Node sẽ tự load index.js)
+# Trỏ đúng vào package (Đã OK)
 ENV NODE_OPTIONS="--require @synopsys-sig/seeker"
 
 EXPOSE 50051
