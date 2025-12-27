@@ -76,7 +76,7 @@ RUN mkdir -p node_modules/@google-cloud/trace-agent \
 ARG SEEKER_ACCESS_TOKEN
 ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
-ENV SEEKER_PROJECT_KEY="microservices-demo"
+ENV SEEKER_PROJECT_KEY="microservices-demo-nodejs"
 ENV NODE_OPTIONS="--require @synopsys-sig/seeker"
 
 # [FIX FINAL] Cài cứng Port để tránh lỗi undefined

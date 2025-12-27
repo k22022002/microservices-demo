@@ -24,7 +24,7 @@ services:
       - AD_SERVICE_ADDR=adservice:9555
       - SHOPPING_ASSISTANT_SERVICE_ADDR=shopping-assistant:8080
       - SEEKER_SERVER_URL=http://192.168.12.190:8082
-      - SEEKER_PROJECT_KEY=microservices-demo
+      - SEEKER_PROJECT_KEY=microservices-demo-go
 
   paymentservice:
     image: kienngo22022002/paymentservice:iast
@@ -35,7 +35,7 @@ services:
     environment:
       - PORT=50051
       - SEEKER_SERVER_URL=http://192.168.12.190:8082
-      - SEEKER_PROJECT_KEY=microservices-demo
+      - SEEKER_PROJECT_KEY=microservices-demo-nodejs
       - DISABLE_PROFILER=1
       - DISABLE_DEBUGGER=1
 
@@ -48,7 +48,7 @@ services:
     environment:
       - PORT=9555
       - SEEKER_SERVER_URL=http://192.168.12.190:8082
-      - SEEKER_PROJECT_KEY=microservices-demo
+      - SEEKER_PROJECT_KEY=microservices-demo-java
       - JAVA_TOOL_OPTIONS=-javaagent:/app/seeker-agent.jar
 
   # =========================================================================
@@ -123,7 +123,7 @@ services:
       - CURRENCY_SERVICE_ADDR=currencyservice:7000
       - CART_SERVICE_ADDR=cartservice:7070
       - SEEKER_SERVER_URL=http://192.168.12.190:8082
-      - SEEKER_PROJECT_KEY=microservices-demo
+      - SEEKER_PROJECT_KEY=microservices-demo-go
   emailservice:
     image: gcr.io/google-samples/microservices-demo/emailservice:v0.10.1
     pull_policy: never

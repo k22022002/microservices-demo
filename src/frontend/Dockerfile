@@ -126,7 +126,7 @@ ARG SEEKER_ACCESS_TOKEN
 
 # Export các biến cần thiết cho build wrapper
 RUN export SEEKER_SERVER_URL=$SEEKER_URL \
-    && export SEEKER_PROJECT_KEY=$SEEKER_PROJECT \
+    && export SEEKER_PROJECT_KEY="microservices-demo-go" \
     && export SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN \
     && export SEEKER_ENTRY_POINT=/src/main.go \
     && export SEEKER_COMPOSITE_BUILD=true \
@@ -151,7 +151,7 @@ COPY ./static ./static
 ARG SEEKER_ACCESS_TOKEN
 ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
-ENV SEEKER_PROJECT_KEY="microservices-demo"
+ENV SEEKER_PROJECT_KEY="microservices-demo-go"
 ENV SEEKER_AGENT_NAME="frontend-service"
 # [FIX 4] Log level debug để soi lỗi nếu Agent không start
 ENV SEEKER_IAST_LOG_LEVEL="DEBUG"
