@@ -130,7 +130,8 @@ RUN export SEEKER_SERVER_URL=$SEEKER_URL \
     && export SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN \
     && export SEEKER_ENTRY_POINT=/src/main.go \
     && export SEEKER_COMPOSITE_BUILD=true \
-    && /usr/local/bin/seeker-agent-build go build -v -o /go/bin/frontend .
+    && export SEEKER_DEBUG=true \
+    && /usr/local/bin/seeker-agent-build go build -a	 -v -o /go/bin/frontend .
 
 # --- Final Stage ---
 # [CRITICAL] Dùng Debian Slim thay vì Alpine để có glibc
@@ -151,7 +152,9 @@ ARG SEEKER_ACCESS_TOKEN
 ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
 ENV SEEKER_PROJECT_KEY="microservices-demo"
-
+ENV SEEKER_AGENT_NAME="frontend-service"
+# [FIX 4] Log level debug để soi lỗi nếu Agent không start
+ENV SEEKER_IAST_LOG_LEVEL="DEBUG"
 # [FIX PANIC] Biến môi trường cho App
 ENV PRODUCT_CATALOG_SERVICE_ADDR="productcatalogservice:3550"
 ENV CURRENCY_SERVICE_ADDR="currencyservice:7000"
