@@ -112,7 +112,7 @@ COPY --from=builder /src/checkoutservice /src/checkoutservice
 ARG SEEKER_ACCESS_TOKEN
 ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
-ENV SEEKER_PROJECT_KEY="microservices-demo" 
+ENV SEEKER_PROJECT_KEY="microservices-demo-go" 
 ENV PORT=5050
 
 # Đây là biến bị lỗi trong log của bạn:
