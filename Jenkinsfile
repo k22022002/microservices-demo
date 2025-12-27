@@ -111,7 +111,7 @@ pipeline {
                     docker.withRegistry('', "${DOCKER_CRED_ID}") {
                         dir('src/checkoutservice') {
                             def img = docker.build("${DOCKER_REGISTRY}/checkoutservice:iast", 
-                                "--no-cache --build-arg SEEKER_URL=${SEEKER_URL} --build-arg SEEKER_PROJECT=${SEEKER_PROJECT_KEY} --build-arg SEEKER_ACCESS_TOKEN=${SEEKER_ACCESS_TOKEN} .")
+                                "--no-cache --build-arg SEEKER_URL=${SEEKER_URL} --build-arg SEEKER_PROJECT=microservices-demo-go --build-arg SEEKER_ACCESS_TOKEN=${SEEKER_ACCESS_TOKEN} .")
                             img.push()
                         }
                     }
