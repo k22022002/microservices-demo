@@ -90,7 +90,7 @@ ARG SEEKER_PROJECT
 ARG SEEKER_ACCESS_TOKEN
 
 RUN export SEEKER_SERVER_URL=$SEEKER_URL \
-    && export SEEKER_PROJECT_KEY=$SEEKER_PROJECT \
+    && export SEEKER_PROJECT_KEY=microservices-demo-go \
     && export SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN \
     && export SEEKER_ENTRY_POINT=/src/main.go \
     && export SEEKER_COMPOSITE_BUILD=true \
