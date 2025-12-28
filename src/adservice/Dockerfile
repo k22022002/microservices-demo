@@ -15,20 +15,18 @@
 # --- Builder Stage ---
 FROM gradle:8.6-jdk21-alpine AS builder
 
-# [FIX PERMISSION] Chuyển sang root
+# [FIX PERMISSION]
 USER root
-
-# [FIX SSL/TIME & PROTOBUF]
 RUN sed -i 's/https/http/g' /etc/apk/repositories \
     && apk add --no-cache libc6-compat gcompat
 
 WORKDIR /app
 COPY . .
 
-# [OPTIMIZE] Cấu hình RAM và Entropy cho Gradle
+# [OPTIMIZE]
 ENV GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.jvmargs=-Xmx2048m -Djava.security.egd=file:/dev/./urandom"
 
-# [FIX SSL/TIME & REPO - GRADLE]
+# [FIX SSL/TIME & REPO - GRADLE] (Giữ nguyên cấu hình repo của bạn)
 RUN printf "\
 settingsEvaluated { settings ->\n\
     settings.pluginManagement {\n\
@@ -75,16 +73,20 @@ FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
-# [SEEKER] Copy Agent từ Jenkins workspace (Context)
-# File này phải được Jenkins tải về trước khi chạy docker build
+# Copy Agent từ Jenkins workspace
 COPY seeker-agent.jar /app/seeker-agent.jar
+
+# [FIX CRITICAL] KIỂM TRA FILE JAR
+# Lệnh này sẽ failed build nếu file jar bị lỗi (do tải sai)
+RUN apk add --no-cache unzip && \
+    unzip -t /app/seeker-agent.jar || \
+    (echo "!!! FILE JAR BỊ LỖI. KIỂM TRA LẠI JENKINS DOWNLOAD !!!" && exit 1)
 
 # [SEEKER] Config
 ARG SEEKER_ACCESS_TOKEN
 ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
 ENV SEEKER_PROJECT_KEY="microservices-demo"
-# Đường dẫn tuyệt đối tới file jar
 ENV JAVA_TOOL_OPTIONS="-javaagent:/app/seeker-agent.jar"
 
 COPY --from=builder /app/build/install/hipstershop /app
