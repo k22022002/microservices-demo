@@ -38,7 +38,9 @@ services:
       - SEEKER_PROJECT_KEY=microservices-demo-nodejs
       - DISABLE_PROFILER=1
       - DISABLE_DEBUGGER=1
-
+      - SEEKER_AGENT_LOG_LEVEL=DEBUG
+      - NODE_OPTIONS=--import @synopsys-sig/seeker
+      - NODE_TLS_REJECT_UNAUTHORIZED=0
   adservice:
     image: kienngo22022002/adservice:iast
     pull_policy: never
@@ -79,6 +81,7 @@ services:
     # [ĐÃ XÓA PORTS]
     environment:
       - PORT=7000
+      - DISABLE_PROFILER=1
 
   productcatalogservice:
     image: gcr.io/google-samples/microservices-demo/productcatalogservice:v0.10.1
@@ -123,7 +126,13 @@ services:
       - CURRENCY_SERVICE_ADDR=currencyservice:7000
       - CART_SERVICE_ADDR=cartservice:7070
       - SEEKER_SERVER_URL=http://192.168.12.190:8082
-      - SEEKER_PROJECT_KEY=microservices-demo-go
+      # [THAY ĐỔI] Đổi Key tại đây
+      - SEEKER_PROJECT_KEY=microservices-demo-checkout
+      
+      # [QUAN TRỌNG] Thêm dòng này để vẽ mũi tên gRPC sang Payment (Node.js)
+      - SEEKER_GRPC_CLIENT_STREAM_ENABLED=true
+      - SEEKER_GRPC_UNARY_CLIENT_ENABLED=true
+      - SEEKER_AGENT_LOG_LEVEL=DEBUG
   emailservice:
     image: gcr.io/google-samples/microservices-demo/emailservice:v0.10.1
     pull_policy: never

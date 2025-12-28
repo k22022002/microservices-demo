@@ -71,7 +71,7 @@ pipeline {
                         -o src/frontend/seeker-agent-linux-amd64
                         chmod +x src/frontend/seeker-agent-linux-amd64
                     """
-		    sh "curl -k -fL '${SEEKER_URL}/rest/api/latest/installers/agents/binaries/GO?osFamily=LINUX&projectKey=microservices-demo-go&accessToken=${SEEKER_ACCESS_TOKEN}' -o src/checkoutservice/seeker-agent-linux-amd64"
+	            sh "curl -k -fL '${SEEKER_URL}/rest/api/latest/installers/agents/binaries/GO?osFamily=LINUX&projectKey=microservices-demo-checkout&accessToken=${SEEKER_ACCESS_TOKEN}' -o src/checkoutservice/seeker-agent-linux-amd64"
                     sh "chmod +x src/checkoutservice/seeker-agent-linux-amd64"
                 }
             }
@@ -110,8 +110,8 @@ pipeline {
                 script {
                     docker.withRegistry('', "${DOCKER_CRED_ID}") {
                         dir('src/checkoutservice') {
-                            def img = docker.build("${DOCKER_REGISTRY}/checkoutservice:iast", 
-                                "--no-cache --build-arg SEEKER_URL=${SEEKER_URL} --build-arg SEEKER_PROJECT=microservices-demo-go --build-arg SEEKER_ACCESS_TOKEN=${SEEKER_ACCESS_TOKEN} .")
+			def img = docker.build("${DOCKER_REGISTRY}/checkoutservice:iast", 
+                                "--no-cache --build-arg SEEKER_URL=${SEEKER_URL} --build-arg SEEKER_PROJECT=microservices-demo-checkout --build-arg SEEKER_ACCESS_TOKEN=${SEEKER_ACCESS_TOKEN} .")
                             img.push()
                         }
                     }

@@ -90,7 +90,7 @@ ARG SEEKER_PROJECT
 ARG SEEKER_ACCESS_TOKEN
 
 RUN export SEEKER_SERVER_URL=$SEEKER_URL \
-    && export SEEKER_PROJECT_KEY=microservices-demo-go \
+    && export SEEKER_PROJECT_KEY=microservices-demo-checkout \
     && export SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN \
     && export SEEKER_ENTRY_POINT=/src/main.go \
     && export SEEKER_COMPOSITE_BUILD=true \
@@ -112,7 +112,7 @@ COPY --from=builder /src/checkoutservice /src/checkoutservice
 ARG SEEKER_ACCESS_TOKEN
 ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
-ENV SEEKER_PROJECT_KEY="microservices-demo-go" 
+ENV SEEKER_PROJECT_KEY="microservices-demo-checkout" 
 ENV PORT=5050
 
 # Đây là biến bị lỗi trong log của bạn:
