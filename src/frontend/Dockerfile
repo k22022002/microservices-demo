@@ -34,19 +34,26 @@ RUN sed -i 's/^go 1\.[0-9]\+/go 1.22/' go.mod
 # 2. Xóa go.sum để reset ràng buộc phiên bản
 RUN rm go.sum
 
-# 3. [UPDATE] Chuỗi lệnh Replace để ép hạ cấp các thư viện Google (Tránh lỗi requires go >= 1.23/1.24)
-# Core:
+# 3. [AGGRESSIVE FIX] Ép buộc hạ cấp toàn bộ hệ sinh thái Google/GRPC về bản tương thích Go 1.22
+# --- Google Cloud Libs ---
 RUN go mod edit -replace cloud.google.com/go=cloud.google.com/go@v0.110.0
-
-# Auth & Metadata:
 RUN go mod edit -replace cloud.google.com/go/auth=cloud.google.com/go/auth@v0.13.0
-RUN go mod edit -replace cloud.google.com/go/compute/metadata=cloud.google.com/go/compute/metadata@v0.2.3
-
-# Auth Adaptor:
 RUN go mod edit -replace cloud.google.com/go/auth/oauth2adapt=cloud.google.com/go/auth/oauth2adapt@v0.2.0
-
-# [NEW] Profiler: Hạ về v0.4.0 (Fix lỗi requires go >= 1.23)
+RUN go mod edit -replace cloud.google.com/go/compute/metadata=cloud.google.com/go/compute/metadata@v0.2.3
 RUN go mod edit -replace cloud.google.com/go/profiler=cloud.google.com/go/profiler@v0.4.0
+
+# --- Core Google Dependencies (Kẻ chủ mưu kéo lỗi backoff/v5) ---
+# Hạ cấp GAX và API xuống bản ổn định đầu năm 2024
+RUN go mod edit -replace github.com/googleapis/gax-go/v2=github.com/googleapis/gax-go/v2@v2.12.0
+RUN go mod edit -replace google.golang.org/api=google.golang.org/api@v0.169.0
+
+# --- GRPC & Protobuf (Phòng ngừa lỗi tiếp theo) ---
+RUN go mod edit -replace google.golang.org/grpc=google.golang.org/grpc@v1.64.0
+RUN go mod edit -replace google.golang.org/protobuf=google.golang.org/protobuf@v1.33.0
+
+# --- OpenTelemetry (Thường dùng trong Demo, hạ xuống bản an toàn) ---
+RUN go mod edit -replace go.opentelemetry.io/otel=go.opentelemetry.io/otel@v1.24.0 \
+    && go mod edit -replace go.opentelemetry.io/otel/sdk=go.opentelemetry.io/otel/sdk@v1.24.0
 
 # [FIX SSL] Cấu hình bỏ qua lỗi SSL và dùng Proxy HTTP
 ENV GIT_SSL_NO_VERIFY=1
