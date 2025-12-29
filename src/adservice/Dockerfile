@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# --- Builder Stage (Giữ nguyên phần đầu của bạn) ---
-# --- Builder Stage ---
 # --- Builder Stage ---
 FROM gradle:8.6-jdk21-alpine AS builder
 
@@ -21,9 +19,10 @@ WORKDIR /app
 
 COPY . .
 
-# [FIX SSL/TIME] Tạo init.gradle bằng printf để đảm bảo xuống dòng đúng (tránh lỗi cú pháp)
-# Cấu hình ép buộc dùng HTTP Mirror của Aliyun để bỏ qua lỗi SSL
-RUN mkdir -p /root/.gradle && printf "allprojects {\n\
+# [FIX SSL/TIME] 
+# 1. Tạo init.gradle tại /tmp (thay vì /root để tránh lỗi permission của user gradle)
+# 2. Gộp lệnh tạo file và lệnh chạy gradle vào cùng 1 step để đảm bảo file tồn tại
+RUN printf "allprojects {\n\
     buildscript {\n\
         repositories {\n\
             maven {\n\
@@ -42,10 +41,8 @@ RUN mkdir -p /root/.gradle && printf "allprojects {\n\
             allowInsecureProtocol = true\n\
         }\n\
     }\n\
-}\n" > /root/.gradle/init.gradle
-
-# Chạy build với init script vừa tạo
-RUN gradle installDist -x test --no-daemon --init-script /root/.gradle/init.gradle
+}\n" > /tmp/init.gradle \
+ && gradle installDist -x test --no-daemon --init-script /tmp/init.gradle
 
 # --- Final Stage ---
 FROM eclipse-temurin:21-jre-alpine
