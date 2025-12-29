@@ -19,11 +19,12 @@ WORKDIR /app
 
 COPY . .
 
-# [FIX SSL/TIME]
-# Cập nhật init.gradle: 
-# 1. Thêm 'pluginManagement' để tải Plugin qua HTTP Aliyun (Sửa lỗi protobuf not found)
-# 2. Giữ nguyên cấu hình 'allprojects' cho dependencies thường
-# 3. Tạo file tại /tmp/init.gradle để tránh lỗi permission
+# [OPTIMIZE] Cấu hình RAM và Entropy cho Gradle trên Alpine (Tránh treo)
+ENV GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.jvmargs=-Xmx2048m -Djava.security.egd=file:/dev/./urandom"
+
+# [FIX SSL/TIME & HANG]
+# 1. Thêm repo 'google' vào init script vì task :extractIncludeProto cần tải protoc từ Google
+# 2. Thêm timeout để fail nhanh nếu mạng treo
 RUN printf "\
 settingsEvaluated { settings ->\n\
     settings.pluginManagement {\n\
@@ -46,6 +47,10 @@ allprojects {\n\
                 url = uri('http://maven.aliyun.com/repository/public')\n\
                 allowInsecureProtocol = true\n\
             }\n\
+            maven {\n\
+                url = uri('http://maven.aliyun.com/repository/google')\n\
+                allowInsecureProtocol = true\n\
+            }\n\
         }\n\
     }\n\
     repositories {\n\
@@ -53,9 +58,13 @@ allprojects {\n\
             url = uri('http://maven.aliyun.com/repository/public')\n\
             allowInsecureProtocol = true\n\
         }\n\
+        maven {\n\
+            url = uri('http://maven.aliyun.com/repository/google')\n\
+            allowInsecureProtocol = true\n\
+        }\n\
     }\n\
 }\n" > /tmp/init.gradle \
- && gradle installDist -x test --no-daemon --init-script /tmp/init.gradle
+ && gradle installDist -x test --no-daemon --info --stacktrace --init-script /tmp/init.gradle
 
 # --- Final Stage ---
 FROM eclipse-temurin:21-jre-alpine
