@@ -21,27 +21,36 @@ RUN sed -i 's/https/http/g' /etc/apk/repositories \
 
 WORKDIR /src
 
-# [SEEKER] Copy Tool
+# [SEEKER] Copy Tool (Agent đã được Jenkins tải về ở bước Download Agents)
+# Lưu ý: Jenkins copy file vào src/frontend/seeker-agent-linux-amd64
 COPY seeker-agent-linux-amd64 /usr/local/bin/seeker-agent-build
 RUN chmod +x /usr/local/bin/seeker-agent-build
 
 COPY go.mod go.sum ./
 
-# [FIX SSL] Tat check SSL cho Git va Go
+# [FIX BUG - VERSION] Hạ cấp yêu cầu Go trong go.mod xuống 1.22 để khớp với Docker Image
+# Lệnh này tìm dòng bắt đầu bằng 'go 1.xx' và sửa thành 'go 1.22'
+RUN sed -i 's/^go 1\.[0-9]\+/go 1.22/' go.mod
+
+# [FIX SSL] Tat check SSL cho Git va Go Mod
 ENV GIT_SSL_NO_VERIFY=1
 ENV GONOSUMDB=*
 ENV GOINSECURE=*
+# Dùng GOPROXY HTTP để tránh lỗi handshake
+ENV GOPROXY=http://goproxy.cn,direct
 
 RUN go mod download
 
 COPY . .
 
 # [SEEKER] Build Wrapper
+# Nhận tham số từ Jenkins build-arg
 ARG SEEKER_URL="http://192.168.12.190:8082"
 ARG SEEKER_PROJECT="microservices-demo"
 
 ENV CGO_ENABLED=0 
 
+# Chạy build thông qua wrapper của Seeker
 RUN export SEEKER_SERVER_URL=$SEEKER_URL \
     && export SEEKER_PROJECT_KEY=$SEEKER_PROJECT \
     && /usr/local/bin/seeker-agent-build go build -o /go/bin/frontend .
