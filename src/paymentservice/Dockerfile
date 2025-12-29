@@ -28,11 +28,14 @@ WORKDIR /usr/src/app
 COPY package*.json ./
 
 # [FIX BUG - QUAN TRỌNG]
-# 1. Xóa dòng chứa "pprof" trong package.json
-RUN sed -i '/"pprof":/d' package.json
-
-# 2. Xóa luôn package-lock.json để tránh npm tự động tải lại pprof từ file lock cũ
+# 1. Xóa package-lock.json để reset toàn bộ dependency tree
 RUN rm -f package-lock.json
+
+# 2. Xóa gốc rễ: @google-cloud/profiler và debug-agent (những thằng này kéo pprof về)
+# Dùng sed để xóa dòng chứa tên thư viện trong package.json
+RUN sed -i '/@google-cloud\/profiler/d' package.json \
+    && sed -i '/@google-cloud\/debug-agent/d' package.json \
+    && sed -i '/"pprof":/d' package.json
 
 # [SEEKER] Copy & Install Agent
 COPY seeker-node-agent.zip /tmp/seeker-node-agent.zip
@@ -42,8 +45,8 @@ RUN mkdir -p seeker \
     && npm install ./seeker/seeker-agent.tgz --prefix seeker --save
 
 # Install App Deps
-# Lưu ý: Thêm --no-optional để bỏ qua các gói phụ
-RUN npm install --only=production --no-optional
+# Thêm --no-audit để chạy nhanh hơn
+RUN npm install --only=production --no-optional --no-audit
 
 # --- Final Stage ---
 FROM node:20-alpine
