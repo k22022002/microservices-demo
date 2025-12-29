@@ -21,6 +21,7 @@ import (
 	"os"
 	"time"
 
+	_ "github.com/synopsys-sig/seeker-go-agent"
 	"cloud.google.com/go/profiler"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
