@@ -15,16 +15,21 @@
 # --- Builder Stage ---
 FROM gradle:8.6-jdk21-alpine AS builder
 
+# [FIX] Chuyển sang root để cài đặt gói hệ thống
+USER root
+
+# [FIX PROTOBUF] Cài đặt thư viện tương thích để chạy được protoc (glibc binary) trên Alpine
+RUN apk add --no-cache libc6-compat gcompat
+
 WORKDIR /app
 
 COPY . .
 
-# [OPTIMIZE] Cấu hình RAM và Entropy cho Gradle trên Alpine (Tránh treo)
+# [OPTIMIZE] Cấu hình RAM và Entropy cho Gradle (Tránh treo)
 ENV GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.jvmargs=-Xmx2048m -Djava.security.egd=file:/dev/./urandom"
 
-# [FIX SSL/TIME & HANG]
-# 1. Thêm repo 'google' vào init script vì task :extractIncludeProto cần tải protoc từ Google
-# 2. Thêm timeout để fail nhanh nếu mạng treo
+# [FIX SSL/TIME & REPO]
+# Tạo init.gradle để cấu hình Mirror (Aliyun) cho cả Plugin và Dependency
 RUN printf "\
 settingsEvaluated { settings ->\n\
     settings.pluginManagement {\n\
