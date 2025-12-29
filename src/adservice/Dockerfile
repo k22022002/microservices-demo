@@ -14,58 +14,53 @@
 
 # --- Builder Stage (Giữ nguyên phần đầu của bạn) ---
 # --- Builder Stage ---
-FROM eclipse-temurin:21-jdk-alpine AS builder
+# --- Builder Stage ---
+FROM gradle:8.6-jdk21-alpine AS builder
 
 WORKDIR /app
 
-# [FIX SSL/TIME] 1. Chuyen repo Alpine sang HTTP
-RUN sed -i 's/https/http/g' /etc/apk/repositories
-
-# [FIX SSL/TIME] 2. Cai dat cac cong cu can thiet
-RUN apk add --no-cache wget unzip
-
-# [FIX SSL/TIME] 3. Cai dat Gradle 8.5 thu cong (Bo qua Wrapper)
-RUN wget --no-check-certificate -q https://services.gradle.org/distributions/gradle-8.5-bin.zip -P /tmp \
-    && unzip -q /tmp/gradle-8.5-bin.zip -d /opt/ \
-    && ln -s /opt/gradle-8.5 /opt/gradle
-
-# Them Gradle vao PATH
-ENV PATH=$PATH:/opt/gradle/bin
-
-# [FIX SSL/TIME] 4. Tao file init.gradle de ep buoc tai thu vien qua HTTP (Aliyun Mirror)
-# Dieu nay giup tranh loi PKIX path validation failed khi build app
-RUN mkdir -p /root/.gradle && echo " \
-    allprojects { \
-        buildscript { \
-            repositories { \
-                maven { url 'http://maven.aliyun.com/repository/public'; allowInsecureProtocol = true } \
-                maven { url 'http://maven.aliyun.com/repository/gradle-plugin'; allowInsecureProtocol = true } \
-            } \
-        } \
-        repositories { \
-            maven { url 'http://maven.aliyun.com/repository/public'; allowInsecureProtocol = true } \
-        } \
-    } \
-" > /root/.gradle/init.gradle
-
 COPY . .
 
-# [FIX SSL/TIME] 5. Chay build bang lenh gradle truc tiep (khong dung ./gradlew)
-RUN gradle installDist -x test --no-daemon
+# [FIX SSL/TIME] Tạo init.gradle bằng printf để đảm bảo xuống dòng đúng (tránh lỗi cú pháp)
+# Cấu hình ép buộc dùng HTTP Mirror của Aliyun để bỏ qua lỗi SSL
+RUN mkdir -p /root/.gradle && printf "allprojects {\n\
+    buildscript {\n\
+        repositories {\n\
+            maven {\n\
+                url = uri('http://maven.aliyun.com/repository/public')\n\
+                allowInsecureProtocol = true\n\
+            }\n\
+            maven {\n\
+                url = uri('http://maven.aliyun.com/repository/gradle-plugin')\n\
+                allowInsecureProtocol = true\n\
+            }\n\
+        }\n\
+    }\n\
+    repositories {\n\
+        maven {\n\
+            url = uri('http://maven.aliyun.com/repository/public')\n\
+            allowInsecureProtocol = true\n\
+        }\n\
+    }\n\
+}\n" > /root/.gradle/init.gradle
+
+# Chạy build với init script vừa tạo
+RUN gradle installDist -x test --no-daemon --init-script /root/.gradle/init.gradle
 
 # --- Final Stage ---
 FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
-# [SEEKER] Copy Agent
+# [SEEKER] 1. Copy Agent
 COPY seeker-agent.jar /app/seeker-agent.jar
 
-# [SEEKER] Config
+# [SEEKER] 2. Config
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
 ENV SEEKER_PROJECT_KEY="microservices-demo"
 ENV JAVA_TOOL_OPTIONS="-javaagent:/app/seeker-agent.jar"
 
+# Copy kết quả build từ stage trước
 COPY --from=builder /app/build/install/hipstershop /app
 
 EXPOSE 9555
