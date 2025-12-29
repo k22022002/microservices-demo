@@ -31,15 +31,23 @@ services:
     pull_policy: never
     container_name: paymentservice
     restart: always
-    # [ĐÃ XÓA PORTS] Service này chỉ cần giao tiếp nội bộ
     environment:
       - PORT=50051
       - SEEKER_SERVER_URL=http://192.168.12.190:8082
       - SEEKER_PROJECT_KEY=microservices-demo-nodejs
+      
+      # [FIX 1] Đặt tên Agent cố định để tránh sinh ra project -1, -2
+      - SEEKER_AGENT_NAME=paymentservice-node-agent
+      
+      # [FIX 2] Bật tính năng theo dõi gRPC cho Node.js
+      - SEEKER_GRPC_SUPPORT=true
+      - SEEKER_JS_GRPC_SUPPORT=true
+      
+      # [FIX 3] Dùng --require thay vì --import (Vì app này là CommonJS)
+      
       - DISABLE_PROFILER=1
       - DISABLE_DEBUGGER=1
       - SEEKER_AGENT_LOG_LEVEL=DEBUG
-      - NODE_OPTIONS=--import @synopsys-sig/seeker
       - NODE_TLS_REJECT_UNAUTHORIZED=0
   adservice:
     image: kienngo22022002/adservice:iast
