@@ -15,11 +15,14 @@
 # --- Builder Stage ---
 FROM gradle:8.6-jdk21-alpine AS builder
 
-# [FIX] Chuyển sang root để cài đặt gói hệ thống
+# [FIX PERMISSION] Chuyển sang root để có quyền cài gói hệ thống
 USER root
 
-# [FIX PROTOBUF] Cài đặt thư viện tương thích để chạy được protoc (glibc binary) trên Alpine
-RUN apk add --no-cache libc6-compat gcompat
+# [FIX SSL/TIME & PROTOBUF]
+# 1. Chuyển repo Alpine sang HTTP để tránh lỗi "certificate verify failed" do sai giờ
+# 2. Cài đặt thư viện tương thích (libc6-compat, gcompat) để chạy được protoc
+RUN sed -i 's/https/http/g' /etc/apk/repositories \
+    && apk add --no-cache libc6-compat gcompat
 
 WORKDIR /app
 
@@ -28,8 +31,9 @@ COPY . .
 # [OPTIMIZE] Cấu hình RAM và Entropy cho Gradle (Tránh treo)
 ENV GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.jvmargs=-Xmx2048m -Djava.security.egd=file:/dev/./urandom"
 
-# [FIX SSL/TIME & REPO]
-# Tạo init.gradle để cấu hình Mirror (Aliyun) cho cả Plugin và Dependency
+# [FIX SSL/TIME & REPO - GRADLE]
+# Tạo init.gradle cấu hình Mirror HTTP (Aliyun) cho cả Plugin và Dependency
+# Thêm repo 'google' để tải protoc
 RUN printf "\
 settingsEvaluated { settings ->\n\
     settings.pluginManagement {\n\
