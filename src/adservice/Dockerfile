@@ -16,31 +16,44 @@
 # --- Builder Stage ---
 # --- Builder Stage ---
 # --- Builder Stage: Dùng image có sẵn Gradle để không bị lỗi tải về ---
-FROM gradle:8.6-jdk21-alpine AS builder
+# --- Builder Stage ---
+FROM eclipse-temurin:21-jdk-alpine AS builder
 
 WORKDIR /app
 
+COPY ["build.gradle", "gradlew", "./"]
+COPY gradle gradle
+RUN chmod +x gradlew
+
+# [FIX SSL] Tải Gradle thủ công dùng wget không check chứng chỉ
+# Dùng server khác (mirror) nếu server chính quá chậm
+RUN sed -i 's/https/http/g' /etc/apk/repositories \
+    && apk add --no-cache wget unzip \
+    && echo "Downloading Gradle..." \
+    && wget --no-check-certificate -q https://services.gradle.org/distributions/gradle-8.5-bin.zip -P /tmp \
+    && unzip -q /tmp/gradle-8.5-bin.zip -d /root/.gradle/wrapper/dists/gradle-8.5-bin/ \
+    && mkdir -p /root/.gradle/wrapper/dists/gradle-8.5-bin/oz20x72052e379u313f509931/ \
+    && mv /root/.gradle/wrapper/dists/gradle-8.5-bin/gradle-8.5 /root/.gradle/wrapper/dists/gradle-8.5-bin/oz20x72052e379u313f509931/
+
 COPY . .
 
-# Chạy build bằng gradle có sẵn (Bỏ qua test để nhanh hơn)
-# Lưu ý: Lệnh này sẽ tạo ra thư mục build/install/hipstershop
-RUN gradle installDist -x test --no-daemon
+# Chạy build (Gradle sẽ tìm thấy bản đã tải và không cần tải lại)
+RUN ./gradlew installDist -x test --no-daemon
 
 # --- Final Stage ---
 FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
-# [SEEKER] 1. Copy Agent
+# [SEEKER] Copy Agent
 COPY seeker-agent.jar /app/seeker-agent.jar
 
-# [SEEKER] 2. Config
+# [SEEKER] Config
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
 ENV SEEKER_PROJECT_KEY="microservices-demo"
 ENV JAVA_TOOL_OPTIONS="-javaagent:/app/seeker-agent.jar"
 
-# Copy kết quả build từ stage trước
-COPY --from=builder /app/build/install/hipstershop /app
+COPY --from=builder /app .
 
 EXPOSE 9555
-ENTRYPOINT ["/app/bin/AdService"]
+ENTRYPOINT ["/app/build/install/hipstershop/bin/AdService"]

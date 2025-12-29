@@ -13,11 +13,11 @@
 # limitations under the License.
 
 # --- Builder Stage ---
-# --- Builder Stage ---
 FROM node:20-alpine AS builder
 
-# [FIX SSL/TIME] Chuyen repo sang HTTP de tranh loi chung chi
-RUN sed -i 's/https/http/g' /etc/apk/repositories
+# [QUAN TRỌNG] Tắt kiểm tra SSL cho Node.js và NPM
+ENV NODE_TLS_REJECT_UNAUTHORIZED=0
+RUN npm config set strict-ssl false
 
 RUN apk add --update --no-cache python3 make g++ unzip
 
@@ -25,19 +25,22 @@ WORKDIR /usr/src/app
 
 COPY package*.json ./
 
-# [SEEKER] 1. Copy file zip
+# [SEEKER] Copy Agent
 COPY seeker-node-agent.zip /tmp/seeker-node-agent.zip
 
-# [SEEKER] 2. Cai dat Agent
+# [SEEKER] Cài Agent
 RUN mkdir -p seeker \
     && unzip -d seeker /tmp/seeker-node-agent.zip \
     && npm install ./seeker/seeker-agent.tgz --prefix seeker --save
 
-# 3. Install App Deps
+# Install Dependencies
 RUN npm install --only=production
 
 # --- Final Stage ---
 FROM node:20-alpine
+
+# [QUAN TRỌNG] Tắt SSL Runtime (để Agent gửi dữ liệu về Seeker Server không bị lỗi)
+ENV NODE_TLS_REJECT_UNAUTHORIZED=0
 
 WORKDIR /usr/src/app
 
@@ -46,10 +49,9 @@ COPY --from=builder /usr/src/app/seeker ./seeker
 
 COPY . .
 
-# [SEEKER] 3. Config
+# [SEEKER] Config
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
 ENV SEEKER_PROJECT_KEY="microservices-demo"
-# Node 20 dung --import
 ENV NODE_OPTIONS="--import ./seeker/node_modules/@synopsys-sig/seeker/agent/index.mjs"
 
 EXPOSE 50051
