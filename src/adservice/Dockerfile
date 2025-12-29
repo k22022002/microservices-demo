@@ -19,18 +19,31 @@ WORKDIR /app
 
 COPY . .
 
-# [FIX SSL/TIME] 
-# 1. Tạo init.gradle tại /tmp (thay vì /root để tránh lỗi permission của user gradle)
-# 2. Gộp lệnh tạo file và lệnh chạy gradle vào cùng 1 step để đảm bảo file tồn tại
-RUN printf "allprojects {\n\
-    buildscript {\n\
+# [FIX SSL/TIME]
+# Cập nhật init.gradle: 
+# 1. Thêm 'pluginManagement' để tải Plugin qua HTTP Aliyun (Sửa lỗi protobuf not found)
+# 2. Giữ nguyên cấu hình 'allprojects' cho dependencies thường
+# 3. Tạo file tại /tmp/init.gradle để tránh lỗi permission
+RUN printf "\
+settingsEvaluated { settings ->\n\
+    settings.pluginManagement {\n\
         repositories {\n\
+            maven {\n\
+                url = uri('http://maven.aliyun.com/repository/gradle-plugin')\n\
+                allowInsecureProtocol = true\n\
+            }\n\
             maven {\n\
                 url = uri('http://maven.aliyun.com/repository/public')\n\
                 allowInsecureProtocol = true\n\
             }\n\
+        }\n\
+    }\n\
+}\n\
+allprojects {\n\
+    buildscript {\n\
+        repositories {\n\
             maven {\n\
-                url = uri('http://maven.aliyun.com/repository/gradle-plugin')\n\
+                url = uri('http://maven.aliyun.com/repository/public')\n\
                 allowInsecureProtocol = true\n\
             }\n\
         }\n\
