@@ -27,10 +27,12 @@ WORKDIR /usr/src/app
 
 COPY package*.json ./
 
-# [FIX BUG] Xóa thư viện 'pprof' khỏi package.json.
-# Lý do: pprof gây lỗi biên dịch trên Alpine khi giờ hệ thống sai (CERT_NOT_YET_VALID).
-# Thư viện này chỉ dùng cho Google Cloud Profiler, không cần thiết cho môi trường Demo/IAST.
+# [FIX BUG - QUAN TRỌNG]
+# 1. Xóa dòng chứa "pprof" trong package.json
 RUN sed -i '/"pprof":/d' package.json
+
+# 2. Xóa luôn package-lock.json để tránh npm tự động tải lại pprof từ file lock cũ
+RUN rm -f package-lock.json
 
 # [SEEKER] Copy & Install Agent
 COPY seeker-node-agent.zip /tmp/seeker-node-agent.zip
@@ -40,7 +42,7 @@ RUN mkdir -p seeker \
     && npm install ./seeker/seeker-agent.tgz --prefix seeker --save
 
 # Install App Deps
-# Lưu ý: Thêm --no-optional để tránh cài các gói phụ gây lỗi
+# Lưu ý: Thêm --no-optional để bỏ qua các gói phụ
 RUN npm install --only=production --no-optional
 
 # --- Final Stage ---
