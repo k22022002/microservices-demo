@@ -14,6 +14,7 @@
 
 # --- Builder Stage (Giữ nguyên phần đầu của bạn) ---
 # --- Builder Stage ---
+# --- Builder Stage ---
 FROM eclipse-temurin:21-jdk-alpine AS builder
 
 WORKDIR /app
@@ -21,12 +22,11 @@ WORKDIR /app
 COPY ["build.gradle", "gradlew", "./"]
 COPY gradle gradle
 
-# Thay đổi quyền thực thi
 RUN chmod +x gradlew
 
-# [FIX SSL] Tải Gradle thủ công bằng wget (bỏ qua check SSL) thay vì để wrapper tự tải
-# Điều này giúp tránh lỗi CertificateNotYetValidException
-RUN apk add --no-cache wget unzip \
+# [FIX LOI SSL] Chuyen repo sang HTTP truoc khi cai dat
+RUN sed -i 's/https/http/g' /etc/apk/repositories \
+    && apk add --no-cache wget unzip \
     && wget --no-check-certificate https://services.gradle.org/distributions/gradle-8.5-bin.zip -P /tmp \
     && unzip /tmp/gradle-8.5-bin.zip -d /root/.gradle/wrapper/dists/gradle-8.5-bin/ \
     && mkdir -p /root/.gradle/wrapper/dists/gradle-8.5-bin/oz20x72052e379u313f509931/ \
@@ -40,10 +40,10 @@ FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
-# [SEEKER] 1. Copy Agent
+# [SEEKER] Copy Agent
 COPY seeker-agent.jar /app/seeker-agent.jar
 
-# [SEEKER] 2. Biến môi trường
+# [SEEKER] Config
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
 ENV SEEKER_PROJECT_KEY="microservices-demo"
 ENV JAVA_TOOL_OPTIONS="-javaagent:/app/seeker-agent.jar"

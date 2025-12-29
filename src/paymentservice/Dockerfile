@@ -16,21 +16,22 @@
 # --- Builder Stage ---
 FROM node:20-alpine AS builder
 
-RUN apk add --update --no-cache python3 make g++ unzip
+# [FIX LOI SSL] Chuyen repo sang HTTP
+RUN sed -i 's/https/http/g' /etc/apk/repositories \
+    && apk add --update --no-cache python3 make g++ unzip
 
 WORKDIR /usr/src/app
 
 COPY package*.json ./
 
-# [SEEKER] 1. Copy file zip
+# [SEEKER] Copy & Install Agent
 COPY seeker-node-agent.zip /tmp/seeker-node-agent.zip
 
-# [SEEKER] 2. Cài đặt Agent
 RUN mkdir -p seeker \
     && unzip -d seeker /tmp/seeker-node-agent.zip \
     && npm install ./seeker/seeker-agent.tgz --prefix seeker --save
 
-# 3. Cài dependencies
+# Install App Deps
 RUN npm install --only=production
 
 # --- Final Stage ---
@@ -43,10 +44,9 @@ COPY --from=builder /usr/src/app/seeker ./seeker
 
 COPY . .
 
-# [SEEKER] 3. Biến môi trường
+# [SEEKER] Config
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
 ENV SEEKER_PROJECT_KEY="microservices-demo"
-# Node 20 dùng --import thay vì --require cho module ESM
 ENV NODE_OPTIONS="--import ./seeker/node_modules/@synopsys-sig/seeker/agent/index.mjs"
 
 EXPOSE 50051

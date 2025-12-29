@@ -15,28 +15,28 @@
 # --- Builder Stage ---
 FROM golang:1.22-alpine AS builder
 
-# Cài git để tải dependencies
-RUN apk add --no-cache git
+# [FIX LOI SSL] Chuyen repo sang HTTP
+RUN sed -i 's/https/http/g' /etc/apk/repositories \
+    && apk add --no-cache git
 
 WORKDIR /src
 
-# [SEEKER] 1. Copy công cụ build Seeker
+# [SEEKER] Copy Tool
 COPY seeker-agent-linux-amd64 /usr/local/bin/seeker-agent-build
 RUN chmod +x /usr/local/bin/seeker-agent-build
 
 COPY go.mod go.sum ./
-# Tắt check sum database để tránh lỗi SSL khi sai giờ
+# [FIX SSL] Tat check sum database
 ENV GONOSUMDB=*
-RUN go mod download
+# [FIX SSL] Cho phep insecure (http) khi go get
+ENV GOINSECURE=* RUN go mod download
 
 COPY . .
 
-# [SEEKER] 2. Build với Seeker
-# Lưu ý: ARG phải khai báo lại nếu dùng trong RUN
+# [SEEKER] Build
 ARG SEEKER_URL="http://192.168.12.190:8082"
 ARG SEEKER_PROJECT="microservices-demo"
 
-# Tắt CGO để binary chạy được trên alpine pure
 ENV CGO_ENABLED=0 
 
 RUN export SEEKER_SERVER_URL=$SEEKER_URL \
@@ -45,14 +45,16 @@ RUN export SEEKER_SERVER_URL=$SEEKER_URL \
 
 # --- Final Stage ---
 FROM alpine:latest
-RUN apk add --no-cache ca-certificates
+# [FIX SSL] Chuyen repo sang HTTP
+RUN sed -i 's/https/http/g' /etc/apk/repositories \
+    && apk add --no-cache ca-certificates
 
 WORKDIR /src
 COPY --from=builder /go/bin/frontend /src/server
 COPY ./templates ./templates
 COPY ./static ./static
 
-# [SEEKER] 3. Biến môi trường Runtime
+# [SEEKER] Runtime Config
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
 ENV SEEKER_PROJECT_KEY="microservices-demo"
 ENV GOTRACEBACK=single
