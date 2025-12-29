@@ -15,15 +15,7 @@
 # --- Builder Stage ---
 FROM golang:1.22-alpine AS builder
 
-# [QUAN TRỌNG] Tắt kiểm tra SSL cho Git
-ENV GIT_SSL_NO_VERIFY=1
-# Tắt kiểm tra checksum và cho phép tải insecure
-ENV GONOSUMDB=*
-ENV GOINSECURE=*
-
-# Lưu ý: Với Alpine (apk), KHÔNG CÓ CÁCH ĐƠN GIẢN để tắt SSL check.
-# Nếu bước 'apk add' lỗi, bạn BẮT BUỘC phải dùng HTTP cho Alpine repo.
-# Dòng dưới chuyển repo sang HTTP chỉ để cài gói (không ảnh hưởng code của bạn)
+# [FIX SSL] Chuyen Alpine repo sang HTTP
 RUN sed -i 's/https/http/g' /etc/apk/repositories \
     && apk add --no-cache git
 
@@ -34,14 +26,21 @@ COPY seeker-agent-linux-amd64 /usr/local/bin/seeker-agent-build
 RUN chmod +x /usr/local/bin/seeker-agent-build
 
 COPY go.mod go.sum ./
+
+# [FIX SSL] Tat check SSL cho Git va Go
+ENV GIT_SSL_NO_VERIFY=1
+ENV GONOSUMDB=*
+ENV GOINSECURE=*
+
 RUN go mod download
 
 COPY . .
 
-# [SEEKER] Build
+# [SEEKER] Build Wrapper
 ARG SEEKER_URL="http://192.168.12.190:8082"
 ARG SEEKER_PROJECT="microservices-demo"
-ENV CGO_ENABLED=0
+
+ENV CGO_ENABLED=0 
 
 RUN export SEEKER_SERVER_URL=$SEEKER_URL \
     && export SEEKER_PROJECT_KEY=$SEEKER_PROJECT \
@@ -49,7 +48,10 @@ RUN export SEEKER_SERVER_URL=$SEEKER_URL \
 
 # --- Final Stage ---
 FROM alpine:latest
-RUN apk add --no-cache ca-certificates
+
+# [FIX SSL] Chuyen Alpine repo sang HTTP
+RUN sed -i 's/https/http/g' /etc/apk/repositories \
+    && apk add --no-cache ca-certificates
 
 WORKDIR /src
 COPY --from=builder /go/bin/frontend /src/server

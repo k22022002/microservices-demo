@@ -15,31 +15,32 @@
 # --- Builder Stage ---
 FROM node:20-alpine AS builder
 
-# [QUAN TRỌNG] Tắt kiểm tra SSL cho Node.js và NPM
-ENV NODE_TLS_REJECT_UNAUTHORIZED=0
-RUN npm config set strict-ssl false
+# [FIX SSL] Chuyen Alpine repo sang HTTP
+RUN sed -i 's/https/http/g' /etc/apk/repositories \
+    && apk add --update --no-cache python3 make g++ unzip
 
-RUN apk add --update --no-cache python3 make g++ unzip
+# [FIX SSL] Tat kiem tra SSL cho NPM
+RUN npm config set strict-ssl false
+ENV NODE_TLS_REJECT_UNAUTHORIZED=0
 
 WORKDIR /usr/src/app
 
 COPY package*.json ./
 
-# [SEEKER] Copy Agent
+# [SEEKER] Copy & Install Agent
 COPY seeker-node-agent.zip /tmp/seeker-node-agent.zip
 
-# [SEEKER] Cài Agent
 RUN mkdir -p seeker \
     && unzip -d seeker /tmp/seeker-node-agent.zip \
     && npm install ./seeker/seeker-agent.tgz --prefix seeker --save
 
-# Install Dependencies
+# Install App Deps
 RUN npm install --only=production
 
 # --- Final Stage ---
 FROM node:20-alpine
 
-# [QUAN TRỌNG] Tắt SSL Runtime (để Agent gửi dữ liệu về Seeker Server không bị lỗi)
+# [FIX SSL] Tat SSL Runtime
 ENV NODE_TLS_REJECT_UNAUTHORIZED=0
 
 WORKDIR /usr/src/app
