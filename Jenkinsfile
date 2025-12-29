@@ -5,7 +5,7 @@ pipeline {
         // --- CẤU HÌNH SEEKER & DOCKER ---
         SEEKER_URL = 'http://192.168.12.190:8082'
         SEEKER_PROJECT_KEY = 'microservices-demo'
-        DOCKER_REGISTRY = 'k22022002'
+        DOCKER_REGISTRY = 'kienngo22022002'
         DOCKER_CRED_ID = 'docker-hub-credentials-id'
 
         // --- FIX LỖI SSL & TIME (QUAN TRỌNG) ---
