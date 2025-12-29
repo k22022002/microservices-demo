@@ -34,18 +34,19 @@ RUN sed -i 's/^go 1\.[0-9]\+/go 1.22/' go.mod
 # 2. Xóa go.sum để reset ràng buộc phiên bản
 RUN rm go.sum
 
-# 3. [UPDATE] Ép buộc hạ cấp hàng loạt thư viện Google để tương thích Go 1.22
-# Replace: cloud.google.com/go -> v0.110.0
+# 3. [UPDATE] Chuỗi lệnh Replace để ép hạ cấp các thư viện Google (Tránh lỗi requires go >= 1.23/1.24)
+# Core:
 RUN go mod edit -replace cloud.google.com/go=cloud.google.com/go@v0.110.0
 
-# Replace: cloud.google.com/go/auth -> v0.13.0
+# Auth & Metadata:
 RUN go mod edit -replace cloud.google.com/go/auth=cloud.google.com/go/auth@v0.13.0
-
-# Replace: cloud.google.com/go/compute/metadata -> v0.2.3
 RUN go mod edit -replace cloud.google.com/go/compute/metadata=cloud.google.com/go/compute/metadata@v0.2.3
 
-# [NEW] Replace: oauth2adapt -> v0.2.0 (Fix lỗi requires go >= 1.23)
+# Auth Adaptor:
 RUN go mod edit -replace cloud.google.com/go/auth/oauth2adapt=cloud.google.com/go/auth/oauth2adapt@v0.2.0
+
+# [NEW] Profiler: Hạ về v0.4.0 (Fix lỗi requires go >= 1.23)
+RUN go mod edit -replace cloud.google.com/go/profiler=cloud.google.com/go/profiler@v0.4.0
 
 # [FIX SSL] Cấu hình bỏ qua lỗi SSL và dùng Proxy HTTP
 ENV GIT_SSL_NO_VERIFY=1
