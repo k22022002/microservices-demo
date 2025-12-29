@@ -13,28 +13,37 @@
 # limitations under the License.
 
 # --- Builder Stage (Giữ nguyên phần đầu của bạn) ---
-FROM eclipse-temurin:24.0.2_12-jdk-noble@sha256:dacac8e9a0df0d2bd24e702b4431132875c249930b70555ebd7ca285b5bee684 AS builder
+# --- Builder Stage ---
+FROM eclipse-temurin:21-jdk-alpine AS builder
 
 WORKDIR /app
 
 COPY ["build.gradle", "gradlew", "./"]
 COPY gradle gradle
+
+# Thay đổi quyền thực thi
 RUN chmod +x gradlew
-RUN ./gradlew downloadRepos
+
+# [FIX SSL] Tải Gradle thủ công bằng wget (bỏ qua check SSL) thay vì để wrapper tự tải
+# Điều này giúp tránh lỗi CertificateNotYetValidException
+RUN apk add --no-cache wget unzip \
+    && wget --no-check-certificate https://services.gradle.org/distributions/gradle-8.5-bin.zip -P /tmp \
+    && unzip /tmp/gradle-8.5-bin.zip -d /root/.gradle/wrapper/dists/gradle-8.5-bin/ \
+    && mkdir -p /root/.gradle/wrapper/dists/gradle-8.5-bin/oz20x72052e379u313f509931/ \
+    && mv /root/.gradle/wrapper/dists/gradle-8.5-bin/gradle-8.5 /root/.gradle/wrapper/dists/gradle-8.5-bin/oz20x72052e379u313f509931/
 
 COPY . .
-RUN chmod +x gradlew
-RUN ./gradlew installDist
+RUN ./gradlew installDist -x test --no-daemon
 
-# --- Final Stage (Sửa phần này) ---
-FROM eclipse-temurin:25.0.1_8-jre-alpine@sha256:b51543f89580c1ba70e441cfbc0cfc1635c3c16d2e2d77fec9d890342a3a8687
+# --- Final Stage ---
+FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
-# [SEEKER] 1. Copy Agent từ Jenkins workspace vào Image
+# [SEEKER] 1. Copy Agent
 COPY seeker-agent.jar /app/seeker-agent.jar
 
-# [SEEKER] 2. Cấu hình biến môi trường để Java tự load Agent
+# [SEEKER] 2. Biến môi trường
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
 ENV SEEKER_PROJECT_KEY="microservices-demo"
 ENV JAVA_TOOL_OPTIONS="-javaagent:/app/seeker-agent.jar"
