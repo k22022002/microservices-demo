@@ -34,15 +34,18 @@ RUN sed -i 's/^go 1\.[0-9]\+/go 1.22/' go.mod
 # 2. Xóa go.sum để reset ràng buộc phiên bản
 RUN rm go.sum
 
-# 3. Ép buộc hạ cấp các thư viện Google gây lỗi "requires go >= 1.24"
-# Replace: cloud.google.com/go -> bản v0.110.0
+# 3. [UPDATE] Ép buộc hạ cấp hàng loạt thư viện Google để tương thích Go 1.22
+# Replace: cloud.google.com/go -> v0.110.0
 RUN go mod edit -replace cloud.google.com/go=cloud.google.com/go@v0.110.0
 
-# Replace: cloud.google.com/go/auth -> bản v0.13.0 (Tương thích Go 1.22)
+# Replace: cloud.google.com/go/auth -> v0.13.0
 RUN go mod edit -replace cloud.google.com/go/auth=cloud.google.com/go/auth@v0.13.0
 
-# Replace: cloud.google.com/go/compute/metadata -> bản v0.2.3 (Fix trước để tránh lỗi tiếp theo)
+# Replace: cloud.google.com/go/compute/metadata -> v0.2.3
 RUN go mod edit -replace cloud.google.com/go/compute/metadata=cloud.google.com/go/compute/metadata@v0.2.3
+
+# [NEW] Replace: oauth2adapt -> v0.2.0 (Fix lỗi requires go >= 1.23)
+RUN go mod edit -replace cloud.google.com/go/auth/oauth2adapt=cloud.google.com/go/auth/oauth2adapt@v0.2.0
 
 # [FIX SSL] Cấu hình bỏ qua lỗi SSL và dùng Proxy HTTP
 ENV GIT_SSL_NO_VERIFY=1
@@ -51,7 +54,7 @@ ENV GOINSECURE=*
 # Dùng Proxy HTTP để tải lib nhanh và không check SSL
 ENV GOPROXY=http://goproxy.cn,direct
 
-# Lệnh này sẽ tự động tạo lại go.sum với các phiên bản đã replace ở trên
+# Lệnh này sẽ tự động tạo lại go.sum với các phiên bản đã replace
 RUN go mod download
 
 COPY . .
