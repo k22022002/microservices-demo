@@ -29,40 +29,36 @@ RUN chmod +x /usr/local/bin/seeker-agent-build
 COPY go.mod go.sum ./
 
 # ====================================================================================
-# [CRITICAL FIX] "ĐẠI PHẪU" DOWNGRADE VERSION
-# Mục tiêu: Ép toàn bộ dự án về chuẩn Go 1.22 (thay vì Go 1.25 như trong code gốc)
+# [CRITICAL FIX] "ĐẠI PHẪU" DOWNGRADE VERSION (GIỮ NGUYÊN TỪ BƯỚC TRƯỚC VÌ ĐÃ THÀNH CÔNG)
 # ====================================================================================
 
 # 1. Sửa header go.mod: Hạ từ 1.25 xuống 1.22 và xóa toolchain
 RUN sed -i 's/^go 1\.[0-9]\+/go 1.22/' go.mod \
     && sed -i '/toolchain/d' go.mod
 
-# 2. Xóa go.sum cũ để tránh xung đột checksum
+# 2. Xóa go.sum cũ
 RUN rm go.sum
 
-# 3. REPLACE TOÀN DIỆN: Ép dùng phiên bản cũ tương thích Go 1.22
-# --- Nhóm 1: Google Cloud Core (Gây lỗi auth, metadata, profiler) ---
+# 3. REPLACE TOÀN DIỆN:
+# --- Google Cloud Core ---
 RUN go mod edit -replace cloud.google.com/go=cloud.google.com/go@v0.110.0 \
     && go mod edit -replace cloud.google.com/go/auth=cloud.google.com/go/auth@v0.13.0 \
     && go mod edit -replace cloud.google.com/go/auth/oauth2adapt=cloud.google.com/go/auth/oauth2adapt@v0.2.0 \
     && go mod edit -replace cloud.google.com/go/compute/metadata=cloud.google.com/go/compute/metadata@v0.2.3 \
     && go mod edit -replace cloud.google.com/go/profiler=cloud.google.com/go/profiler@v0.4.0
 
-# --- Nhóm 2: Google APIs & GRPC (Gây lỗi backoff/v5, requires go 1.23) ---
+# --- Google APIs & GRPC ---
 RUN go mod edit -replace github.com/googleapis/gax-go/v2=github.com/googleapis/gax-go/v2@v2.12.0 \
     && go mod edit -replace google.golang.org/api=google.golang.org/api@v0.169.0 \
     && go mod edit -replace google.golang.org/grpc=google.golang.org/grpc@v1.64.0 \
     && go mod edit -replace google.golang.org/protobuf=google.golang.org/protobuf@v1.33.0
 
-# --- Nhóm 3: Utilities (Gây lỗi requires go 1.24) ---
-# Backoff: Thay v5 bằng v4
-RUN go mod edit -replace github.com/cenkalti/backoff/v5=github.com/cenkalti/backoff/v4@v4.3.0
-# Validator: Hạ về v10.20.0
-RUN go mod edit -replace github.com/go-playground/validator/v10=github.com/go-playground/validator/v10@v10.20.0
-# Pprof: Hạ về bản tháng 5/2024
-RUN go mod edit -replace github.com/google/pprof=github.com/google/pprof@v0.0.0-20240525223248-4bfdf5a9a2af
+# --- Utilities ---
+RUN go mod edit -replace github.com/cenkalti/backoff/v5=github.com/cenkalti/backoff/v4@v4.3.0 \
+    && go mod edit -replace github.com/go-playground/validator/v10=github.com/go-playground/validator/v10@v10.20.0 \
+    && go mod edit -replace github.com/google/pprof=github.com/google/pprof@v0.0.0-20240525223248-4bfdf5a9a2af
 
-# --- Nhóm 4: OpenTelemetry (Hạ từ v1.39 xuống v1.24 để khớp với GRPC cũ) ---
+# --- OpenTelemetry ---
 RUN go mod edit -replace go.opentelemetry.io/otel=go.opentelemetry.io/otel@v1.24.0 \
     && go mod edit -replace go.opentelemetry.io/otel/sdk=go.opentelemetry.io/otel/sdk@v1.24.0 \
     && go mod edit -replace go.opentelemetry.io/otel/trace=go.opentelemetry.io/otel/trace@v1.24.0 \
@@ -77,14 +73,10 @@ RUN go mod edit -replace go.opentelemetry.io/otel=go.opentelemetry.io/otel@v1.24
 ENV GIT_SSL_NO_VERIFY=1
 ENV GONOSUMDB=*
 ENV GOINSECURE=*
-# Dùng Proxy HTTP để tải lib nhanh và không check SSL
 ENV GOPROXY=http://goproxy.cn,direct
 
-# Chạy tidy để dọn dẹp dependency graph sau khi replace
-RUN go mod tidy
-
-# Download dependencies
-RUN go mod download
+# Tidy và Download
+RUN go mod tidy && go mod download
 
 COPY . .
 
@@ -94,8 +86,10 @@ ARG SEEKER_PROJECT="microservices-demo"
 
 ENV CGO_ENABLED=0 
 
+# [FIX ENTRY POINT] Thêm biến SEEKER_ENTRY_POINT trỏ thẳng vào main.go
 RUN export SEEKER_SERVER_URL=$SEEKER_URL \
     && export SEEKER_PROJECT_KEY=$SEEKER_PROJECT \
+    && export SEEKER_ENTRY_POINT=/src/main.go \
     && /usr/local/bin/seeker-agent-build go build -o /go/bin/frontend .
 
 # --- Final Stage ---
