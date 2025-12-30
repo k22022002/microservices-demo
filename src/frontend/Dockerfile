@@ -12,15 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# --- Builder Stage ---
-FROM golang:1.22-alpine AS builder
-
-# [FIX SSL] Chuyen Alpine repo sang HTTP
-RUN sed -i 's/https/http/g' /etc/apk/repositories
-
-# [FIX HANG - QUAN TRỌNG]
-# Cài đặt libc6-compat và gcompat để Seeker Agent (binary) chạy được trên Alpine mà không bị treo
-RUN apk add --no-cache git libc6-compat gcompat
+# [CHANGE] Dùng golang:1.22 (Debian) thay vì alpine để tương thích 100% với Seeker Agent (glibc)
+# Điều này sẽ khắc phục lỗi treo mà không cần cài thêm thư viện tương thích.
+FROM golang:1.22 AS builder
 
 WORKDIR /src
 
@@ -32,7 +26,7 @@ RUN chmod +x /usr/local/bin/seeker-agent-build
 COPY go.mod go.sum ./
 
 # ====================================================================================
-# [CRITICAL FIX] DOWNGRADE VERSION (GIỮ NGUYÊN)
+# [CRITICAL FIX] DOWNGRADE VERSION (Logic cũ vẫn cần thiết)
 # ====================================================================================
 
 # 1. Sửa header go.mod: Hạ từ 1.25 xuống 1.22 và xóa toolchain
@@ -72,16 +66,17 @@ RUN go mod edit -replace go.opentelemetry.io/otel=go.opentelemetry.io/otel@v1.24
 
 # ====================================================================================
 
-# [FIX SSL] Cấu hình proxy
+# [FIX SSL] Cấu hình proxy và SSL bypass
 ENV GIT_SSL_NO_VERIFY=1
 ENV GONOSUMDB=*
 ENV GOINSECURE=*
 ENV GOPROXY=http://goproxy.cn,direct
 
 # Tidy và Download Dependencies
+# Lưu ý: Debian có sẵn git, không cần cài thêm
 RUN go mod tidy || true && go mod download
 
-# [FIX BACKUP] Backup go.mod chuẩn
+# [FIX BACKUP] Backup go.mod
 RUN cp go.mod go.mod.bak \
     && if [ -f go.sum ]; then cp go.sum go.sum.bak; else echo "No go.sum to backup"; fi
 
@@ -96,11 +91,12 @@ RUN mv go.mod.bak go.mod \
 ARG SEEKER_URL="http://192.168.12.190:8082"
 ARG SEEKER_PROJECT="microservices-demo"
 
+# CGO_ENABLED=0 là bắt buộc để build file tĩnh (chạy được trên Alpine ở bước sau)
 ENV CGO_ENABLED=0 
 
-# [FIX HANG & ENTRY POINT]
-# 1. SEEKER_ENTRY_POINT: Chỉ định file main.go
-# 2. SEEKER_COMPOSITE_BUILD=true: Chế độ OFFLINE để tránh treo mạng.
+# [FIX HANG]
+# 1. Dùng Debian base nên Seeker Agent chạy native, không lo treo do musl.
+# 2. Vẫn giữ SEEKER_COMPOSITE_BUILD=true để tránh treo do mạng.
 RUN export SEEKER_SERVER_URL=$SEEKER_URL \
     && export SEEKER_PROJECT_KEY=$SEEKER_PROJECT \
     && export SEEKER_ENTRY_POINT=/src/main.go \
@@ -108,11 +104,12 @@ RUN export SEEKER_SERVER_URL=$SEEKER_URL \
     && /usr/local/bin/seeker-agent-build go build -v -o /go/bin/frontend .
 
 # --- Final Stage ---
+# Vẫn dùng Alpine để runtime nhẹ
 FROM alpine:latest
 
 # [FIX SSL] Chuyen Alpine repo sang HTTP
 RUN sed -i 's/https/http/g' /etc/apk/repositories \
-    && apk add --no-cache ca-certificates libc6-compat gcompat
+    && apk add --no-cache ca-certificates
 
 WORKDIR /src
 COPY --from=builder /go/bin/frontend /src/server
