@@ -54,9 +54,12 @@ RUN go mod edit -replace google.golang.org/protobuf=google.golang.org/protobuf@v
 RUN go mod edit -replace go.opentelemetry.io/otel=go.opentelemetry.io/otel@v1.24.0 \
     && go mod edit -replace go.opentelemetry.io/otel/sdk=go.opentelemetry.io/otel/sdk@v1.24.0
 
-# --- [NEW FIX] XỬ LÝ LỖI BACKOFF V5 (Requires Go >= 1.23) ---
-# Ép buộc thay thế backoff/v5 bằng backoff/v4 (bản v4.3.0 tương thích Go 1.22)
+# --- Error Handling & Utilities ---
+# Backoff: Hạ về v4 (v4.3.0) để tránh lỗi requires go 1.23
 RUN go mod edit -replace github.com/cenkalti/backoff/v5=github.com/cenkalti/backoff/v4@v4.3.0
+
+# [NEW FIX] Validator: Hạ về v10.20.0 (Fix lỗi requires go 1.24)
+RUN go mod edit -replace github.com/go-playground/validator/v10=github.com/go-playground/validator/v10@v10.20.0
 
 # [FIX SSL] Cấu hình bỏ qua lỗi SSL và dùng Proxy HTTP
 ENV GIT_SSL_NO_VERIFY=1
