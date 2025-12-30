@@ -16,8 +16,11 @@
 FROM golang:1.22-alpine AS builder
 
 # [FIX SSL] Chuyen Alpine repo sang HTTP
-RUN sed -i 's/https/http/g' /etc/apk/repositories \
-    && apk add --no-cache git
+RUN sed -i 's/https/http/g' /etc/apk/repositories
+
+# [FIX HANG - QUAN TRỌNG]
+# Cài đặt libc6-compat và gcompat để Seeker Agent (binary) chạy được trên Alpine mà không bị treo
+RUN apk add --no-cache git libc6-compat gcompat
 
 WORKDIR /src
 
@@ -29,7 +32,7 @@ RUN chmod +x /usr/local/bin/seeker-agent-build
 COPY go.mod go.sum ./
 
 # ====================================================================================
-# [CRITICAL FIX] "ĐẠI PHẪU" DOWNGRADE VERSION
+# [CRITICAL FIX] DOWNGRADE VERSION (GIỮ NGUYÊN)
 # ====================================================================================
 
 # 1. Sửa header go.mod: Hạ từ 1.25 xuống 1.22 và xóa toolchain
@@ -39,7 +42,7 @@ RUN sed -i 's/^go 1\.[0-9]\+/go 1.22/' go.mod \
 # 2. Xóa go.sum cũ
 RUN rm -f go.sum
 
-# 3. REPLACE TOÀN DIỆN (Dependencies Fix):
+# 3. REPLACE TOÀN DIỆN:
 # --- Google Cloud Core ---
 RUN go mod edit -replace cloud.google.com/go=cloud.google.com/go@v0.110.0 \
     && go mod edit -replace cloud.google.com/go/auth=cloud.google.com/go/auth@v0.13.0 \
@@ -78,14 +81,14 @@ ENV GOPROXY=http://goproxy.cn,direct
 # Tidy và Download Dependencies
 RUN go mod tidy || true && go mod download
 
-# [FIX BACKUP] Chỉ backup go.sum NẾU nó tồn tại
+# [FIX BACKUP] Backup go.mod chuẩn
 RUN cp go.mod go.mod.bak \
     && if [ -f go.sum ]; then cp go.sum go.sum.bak; else echo "No go.sum to backup"; fi
 
-# Copy source code (Ghi đè go.mod bằng bản lỗi từ host)
+# Copy source code (Ghi đè go.mod bằng bản lỗi 1.25 từ host)
 COPY . .
 
-# [FIX RESTORE] Khôi phục go.mod
+# [FIX RESTORE] Khôi phục go.mod chuẩn
 RUN mv go.mod.bak go.mod \
     && if [ -f go.sum.bak ]; then mv go.sum.bak go.sum; else rm -f go.sum; fi
 
@@ -96,9 +99,8 @@ ARG SEEKER_PROJECT="microservices-demo"
 ENV CGO_ENABLED=0 
 
 # [FIX HANG & ENTRY POINT]
-# 1. SEEKER_ENTRY_POINT: Chỉ định file main.go để agent biết bắt đầu từ đâu.
-# 2. SEEKER_COMPOSITE_BUILD=true: Chế độ OFFLINE. Agent sẽ không cố kết nối server lúc build -> Tránh treo.
-# 3. go build -v: Thêm cờ verbose để in ra log chi tiết (nếu vẫn treo sẽ biết treo ở package nào).
+# 1. SEEKER_ENTRY_POINT: Chỉ định file main.go
+# 2. SEEKER_COMPOSITE_BUILD=true: Chế độ OFFLINE để tránh treo mạng.
 RUN export SEEKER_SERVER_URL=$SEEKER_URL \
     && export SEEKER_PROJECT_KEY=$SEEKER_PROJECT \
     && export SEEKER_ENTRY_POINT=/src/main.go \
@@ -110,7 +112,7 @@ FROM alpine:latest
 
 # [FIX SSL] Chuyen Alpine repo sang HTTP
 RUN sed -i 's/https/http/g' /etc/apk/repositories \
-    && apk add --no-cache ca-certificates
+    && apk add --no-cache ca-certificates libc6-compat gcompat
 
 WORKDIR /src
 COPY --from=builder /go/bin/frontend /src/server
