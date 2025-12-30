@@ -76,17 +76,16 @@ ENV GOINSECURE=*
 ENV GOPROXY=http://goproxy.cn,direct
 
 # Tidy và Download Dependencies
-# Lưu ý: Thêm '|| true' để không fail nếu tidy không tạo file (do mode insecure)
 RUN go mod tidy || true && go mod download
 
-# [FIX BACKUP] Chỉ backup go.sum NẾU nó tồn tại. Backup go.mod bắt buộc.
+# [FIX BACKUP] Chỉ backup go.sum NẾU nó tồn tại
 RUN cp go.mod go.mod.bak \
     && if [ -f go.sum ]; then cp go.sum go.sum.bak; else echo "No go.sum to backup"; fi
 
-# Copy source code (Ghi đè go.mod/go.sum bằng bản lỗi từ host)
+# Copy source code (Ghi đè go.mod bằng bản lỗi từ host)
 COPY . .
 
-# [FIX RESTORE] Khôi phục go.mod. Nếu không có backup go.sum, XÓA file go.sum vừa copy từ host vào để tránh xung đột.
+# [FIX RESTORE] Khôi phục go.mod
 RUN mv go.mod.bak go.mod \
     && if [ -f go.sum.bak ]; then mv go.sum.bak go.sum; else rm -f go.sum; fi
 
@@ -96,11 +95,15 @@ ARG SEEKER_PROJECT="microservices-demo"
 
 ENV CGO_ENABLED=0 
 
-# Build với file go.mod đã được khôi phục
+# [FIX HANG & ENTRY POINT]
+# 1. SEEKER_ENTRY_POINT: Chỉ định file main.go để agent biết bắt đầu từ đâu.
+# 2. SEEKER_COMPOSITE_BUILD=true: Chế độ OFFLINE. Agent sẽ không cố kết nối server lúc build -> Tránh treo.
+# 3. go build -v: Thêm cờ verbose để in ra log chi tiết (nếu vẫn treo sẽ biết treo ở package nào).
 RUN export SEEKER_SERVER_URL=$SEEKER_URL \
     && export SEEKER_PROJECT_KEY=$SEEKER_PROJECT \
     && export SEEKER_ENTRY_POINT=/src/main.go \
-    && /usr/local/bin/seeker-agent-build go build -o /go/bin/frontend .
+    && export SEEKER_COMPOSITE_BUILD=true \
+    && /usr/local/bin/seeker-agent-build go build -v -o /go/bin/frontend .
 
 # --- Final Stage ---
 FROM alpine:latest
