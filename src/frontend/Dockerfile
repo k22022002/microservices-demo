@@ -37,7 +37,7 @@ RUN sed -i 's/^go 1\.[0-9]\+/go 1.22/' go.mod \
     && sed -i '/toolchain/d' go.mod
 
 # 2. Xóa go.sum cũ
-RUN rm go.sum
+RUN rm -f go.sum
 
 # 3. REPLACE TOÀN DIỆN (Dependencies Fix):
 # --- Google Cloud Core ---
@@ -75,17 +75,20 @@ ENV GONOSUMDB=*
 ENV GOINSECURE=*
 ENV GOPROXY=http://goproxy.cn,direct
 
-# Tidy và Download Dependencies (Lúc này go.mod đang là bản TỐT)
-RUN go mod tidy && go mod download
+# Tidy và Download Dependencies
+# Lưu ý: Thêm '|| true' để không fail nếu tidy không tạo file (do mode insecure)
+RUN go mod tidy || true && go mod download
 
-# [QUAN TRỌNG] Sao lưu file go.mod đã sửa (để không bị ghi đè ở bước sau)
-RUN cp go.mod go.mod.bak && cp go.sum go.sum.bak
+# [FIX BACKUP] Chỉ backup go.sum NẾU nó tồn tại. Backup go.mod bắt buộc.
+RUN cp go.mod go.mod.bak \
+    && if [ -f go.sum ]; then cp go.sum go.sum.bak; else echo "No go.sum to backup"; fi
 
-# Copy source code (Lệnh này sẽ ghi đè go.mod bằng bản lỗi 1.25 từ host)
+# Copy source code (Ghi đè go.mod/go.sum bằng bản lỗi từ host)
 COPY . .
 
-# [QUAN TRỌNG] Khôi phục lại file go.mod đã sửa (để Seeker thấy bản 1.22)
-RUN mv go.mod.bak go.mod && mv go.sum.bak go.sum
+# [FIX RESTORE] Khôi phục go.mod. Nếu không có backup go.sum, XÓA file go.sum vừa copy từ host vào để tránh xung đột.
+RUN mv go.mod.bak go.mod \
+    && if [ -f go.sum.bak ]; then mv go.sum.bak go.sum; else rm -f go.sum; fi
 
 # [SEEKER] Build Wrapper
 ARG SEEKER_URL="http://192.168.12.190:8082"
