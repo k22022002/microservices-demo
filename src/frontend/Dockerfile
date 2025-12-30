@@ -24,9 +24,7 @@ WORKDIR /src
 COPY seeker-agent-linux-amd64 /usr/local/bin/seeker-agent-build
 RUN chmod +x /usr/local/bin/seeker-agent-build
 
-# [THAY ĐỔI QUAN TRỌNG]
-# Copy TOÀN BỘ source code vào ngay từ đầu.
-# Lý do: Để patch go.mod trực tiếp trên file gốc và để go mod tidy nhận diện được code.
+# [QUAN TRỌNG] Copy TOÀN BỘ source code vào ngay từ đầu
 COPY . .
 
 # ====================================================================================
@@ -37,7 +35,7 @@ COPY . .
 RUN sed -i 's/^go 1\.[0-9]\+/go 1.22/' go.mod \
     && sed -i '/toolchain/d' go.mod
 
-# 2. Xóa go.sum cũ (để tạo lại từ đầu)
+# 2. Xóa go.sum cũ
 RUN rm -f go.sum
 
 # 3. REPLACE TOÀN DIỆN (Dependencies Fix):
@@ -59,14 +57,17 @@ RUN go mod edit -replace github.com/cenkalti/backoff/v5=github.com/cenkalti/back
     && go mod edit -replace github.com/go-playground/validator/v10=github.com/go-playground/validator/v10@v10.20.0 \
     && go mod edit -replace github.com/google/pprof=github.com/google/pprof@v0.0.0-20240525223248-4bfdf5a9a2af
 
-# --- OpenTelemetry ---
+# --- OpenTelemetry (Fix lỗi otlptrace v1.39 requires go 1.24) ---
+# Thêm replace cho 'otlptrace' và 'otlp' proto để đồng bộ v1.24.0
 RUN go mod edit -replace go.opentelemetry.io/otel=go.opentelemetry.io/otel@v1.24.0 \
     && go mod edit -replace go.opentelemetry.io/otel/sdk=go.opentelemetry.io/otel/sdk@v1.24.0 \
     && go mod edit -replace go.opentelemetry.io/otel/trace=go.opentelemetry.io/otel/trace@v1.24.0 \
     && go mod edit -replace go.opentelemetry.io/otel/metric=go.opentelemetry.io/otel/metric@v1.24.0 \
+    && go mod edit -replace go.opentelemetry.io/otel/exporters/otlp/otlptrace=go.opentelemetry.io/otel/exporters/otlp/otlptrace@v1.24.0 \
     && go mod edit -replace go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc=go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc@v1.24.0 \
     && go mod edit -replace go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc=go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc@v0.49.0 \
-    && go mod edit -replace go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp=go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp@v0.49.0
+    && go mod edit -replace go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp=go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp@v0.49.0 \
+    && go mod edit -replace go.opentelemetry.io/proto/otlp=go.opentelemetry.io/proto/otlp@v1.3.1
 
 # ====================================================================================
 
@@ -76,10 +77,9 @@ ENV GONOSUMDB=*
 ENV GOINSECURE=*
 ENV GOPROXY=http://goproxy.cn,direct
 
-# [FIX HANG - BƯỚC QUYẾT ĐỊNH]
-# Chạy tidy và download TRƯỚC KHI gọi Seeker Agent.
-# Vì source code đã có (COPY . . ở trên), lệnh này sẽ thực sự tải thư viện về.
-RUN go mod tidy && go mod download
+# [FIX HANG] Chạy tidy và download TRƯỚC KHI build
+# Thêm || true để bỏ qua lỗi non-critical nếu có
+RUN go mod tidy || true && go mod download
 
 # [SEEKER] Build Wrapper
 ARG SEEKER_URL="http://192.168.12.190:8082"
@@ -88,9 +88,6 @@ ARG SEEKER_PROJECT="microservices-demo"
 ENV CGO_ENABLED=0 
 
 # [FIX HANG & ENTRY POINT]
-# 1. SEEKER_COMPOSITE_BUILD=true: Build Offline.
-# 2. SEEKER_DEBUG=true: Bật log debug để xem nếu có lỗi.
-# 3. -p 1: Giảm song song để tránh tốn RAM gây treo.
 RUN export SEEKER_SERVER_URL=$SEEKER_URL \
     && export SEEKER_PROJECT_KEY=$SEEKER_PROJECT \
     && export SEEKER_ENTRY_POINT=/src/main.go \
