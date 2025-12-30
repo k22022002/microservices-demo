@@ -25,43 +25,53 @@ WORKDIR /src
 COPY seeker-agent-linux-amd64 /usr/local/bin/seeker-agent-build
 RUN chmod +x /usr/local/bin/seeker-agent-build
 
+# Copy file định nghĩa dependency
 COPY go.mod go.sum ./
 
-# [FIX BUG - VERSION CONFLICT]
-# 1. Hạ cấp version chính trong go.mod xuống 1.22
-RUN sed -i 's/^go 1\.[0-9]\+/go 1.22/' go.mod
+# ====================================================================================
+# [CRITICAL FIX] "ĐẠI PHẪU" DOWNGRADE VERSION
+# Mục tiêu: Ép toàn bộ dự án về chuẩn Go 1.22 (thay vì Go 1.25 như trong code gốc)
+# ====================================================================================
 
-# 2. Xóa go.sum để reset ràng buộc phiên bản
+# 1. Sửa header go.mod: Hạ từ 1.25 xuống 1.22 và xóa toolchain
+RUN sed -i 's/^go 1\.[0-9]\+/go 1.22/' go.mod \
+    && sed -i '/toolchain/d' go.mod
+
+# 2. Xóa go.sum cũ để tránh xung đột checksum
 RUN rm go.sum
 
-# 3. [AGGRESSIVE FIX] Ép buộc hạ cấp toàn bộ hệ sinh thái để tương thích Go 1.22
-# --- Google Cloud Libs ---
-RUN go mod edit -replace cloud.google.com/go=cloud.google.com/go@v0.110.0
-RUN go mod edit -replace cloud.google.com/go/auth=cloud.google.com/go/auth@v0.13.0
-RUN go mod edit -replace cloud.google.com/go/auth/oauth2adapt=cloud.google.com/go/auth/oauth2adapt@v0.2.0
-RUN go mod edit -replace cloud.google.com/go/compute/metadata=cloud.google.com/go/compute/metadata@v0.2.3
-RUN go mod edit -replace cloud.google.com/go/profiler=cloud.google.com/go/profiler@v0.4.0
+# 3. REPLACE TOÀN DIỆN: Ép dùng phiên bản cũ tương thích Go 1.22
+# --- Nhóm 1: Google Cloud Core (Gây lỗi auth, metadata, profiler) ---
+RUN go mod edit -replace cloud.google.com/go=cloud.google.com/go@v0.110.0 \
+    && go mod edit -replace cloud.google.com/go/auth=cloud.google.com/go/auth@v0.13.0 \
+    && go mod edit -replace cloud.google.com/go/auth/oauth2adapt=cloud.google.com/go/auth/oauth2adapt@v0.2.0 \
+    && go mod edit -replace cloud.google.com/go/compute/metadata=cloud.google.com/go/compute/metadata@v0.2.3 \
+    && go mod edit -replace cloud.google.com/go/profiler=cloud.google.com/go/profiler@v0.4.0
 
-# --- Core Google Dependencies ---
-RUN go mod edit -replace github.com/googleapis/gax-go/v2=github.com/googleapis/gax-go/v2@v2.12.0
-RUN go mod edit -replace google.golang.org/api=google.golang.org/api@v0.169.0
+# --- Nhóm 2: Google APIs & GRPC (Gây lỗi backoff/v5, requires go 1.23) ---
+RUN go mod edit -replace github.com/googleapis/gax-go/v2=github.com/googleapis/gax-go/v2@v2.12.0 \
+    && go mod edit -replace google.golang.org/api=google.golang.org/api@v0.169.0 \
+    && go mod edit -replace google.golang.org/grpc=google.golang.org/grpc@v1.64.0 \
+    && go mod edit -replace google.golang.org/protobuf=google.golang.org/protobuf@v1.33.0
 
-# --- GRPC & Protobuf ---
-RUN go mod edit -replace google.golang.org/grpc=google.golang.org/grpc@v1.64.0
-RUN go mod edit -replace google.golang.org/protobuf=google.golang.org/protobuf@v1.33.0
-
-# --- OpenTelemetry ---
-RUN go mod edit -replace go.opentelemetry.io/otel=go.opentelemetry.io/otel@v1.24.0 \
-    && go mod edit -replace go.opentelemetry.io/otel/sdk=go.opentelemetry.io/otel/sdk@v1.24.0
-
-# --- Error Handling, Utilities & Profiling ---
-# Backoff: Hạ về v4.3.0
+# --- Nhóm 3: Utilities (Gây lỗi requires go 1.24) ---
+# Backoff: Thay v5 bằng v4
 RUN go mod edit -replace github.com/cenkalti/backoff/v5=github.com/cenkalti/backoff/v4@v4.3.0
 # Validator: Hạ về v10.20.0
 RUN go mod edit -replace github.com/go-playground/validator/v10=github.com/go-playground/validator/v10@v10.20.0
-
-# [NEW FIX] Pprof: Hạ về bản cũ (tháng 5/2024) để fix lỗi requires go >= 1.24
+# Pprof: Hạ về bản tháng 5/2024
 RUN go mod edit -replace github.com/google/pprof=github.com/google/pprof@v0.0.0-20240525223248-4bfdf5a9a2af
+
+# --- Nhóm 4: OpenTelemetry (Hạ từ v1.39 xuống v1.24 để khớp với GRPC cũ) ---
+RUN go mod edit -replace go.opentelemetry.io/otel=go.opentelemetry.io/otel@v1.24.0 \
+    && go mod edit -replace go.opentelemetry.io/otel/sdk=go.opentelemetry.io/otel/sdk@v1.24.0 \
+    && go mod edit -replace go.opentelemetry.io/otel/trace=go.opentelemetry.io/otel/trace@v1.24.0 \
+    && go mod edit -replace go.opentelemetry.io/otel/metric=go.opentelemetry.io/otel/metric@v1.24.0 \
+    && go mod edit -replace go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc=go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc@v1.24.0 \
+    && go mod edit -replace go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc=go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc@v0.49.0 \
+    && go mod edit -replace go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp=go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp@v0.49.0
+
+# ====================================================================================
 
 # [FIX SSL] Cấu hình bỏ qua lỗi SSL và dùng Proxy HTTP
 ENV GIT_SSL_NO_VERIFY=1
@@ -70,7 +80,10 @@ ENV GOINSECURE=*
 # Dùng Proxy HTTP để tải lib nhanh và không check SSL
 ENV GOPROXY=http://goproxy.cn,direct
 
-# Lệnh này sẽ tự động tạo lại go.sum với các phiên bản đã replace
+# Chạy tidy để dọn dẹp dependency graph sau khi replace
+RUN go mod tidy
+
+# Download dependencies
 RUN go mod download
 
 COPY . .
