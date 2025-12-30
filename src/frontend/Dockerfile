@@ -14,6 +14,8 @@
 
 # [CHANGE] Dùng golang:1.22 (Debian) thay vì alpine để tương thích 100% với Seeker Agent (glibc)
 # Điều này sẽ khắc phục lỗi treo mà không cần cài thêm thư viện tương thích.
+# --- Builder Stage ---
+# Dùng Debian (golang:1.22) để tương thích tốt nhất với Seeker Agent
 FROM golang:1.22 AS builder
 
 WORKDIR /src
@@ -22,21 +24,23 @@ WORKDIR /src
 COPY seeker-agent-linux-amd64 /usr/local/bin/seeker-agent-build
 RUN chmod +x /usr/local/bin/seeker-agent-build
 
-# Copy file định nghĩa dependency
-COPY go.mod go.sum ./
+# [THAY ĐỔI QUAN TRỌNG]
+# Copy TOÀN BỘ source code vào ngay từ đầu.
+# Lý do: Để patch go.mod trực tiếp trên file gốc và để go mod tidy nhận diện được code.
+COPY . .
 
 # ====================================================================================
-# [CRITICAL FIX] DOWNGRADE VERSION (Logic cũ vẫn cần thiết)
+# [CRITICAL FIX] DOWNGRADE VERSION & PREPARE DEPENDENCIES
 # ====================================================================================
 
 # 1. Sửa header go.mod: Hạ từ 1.25 xuống 1.22 và xóa toolchain
 RUN sed -i 's/^go 1\.[0-9]\+/go 1.22/' go.mod \
     && sed -i '/toolchain/d' go.mod
 
-# 2. Xóa go.sum cũ
+# 2. Xóa go.sum cũ (để tạo lại từ đầu)
 RUN rm -f go.sum
 
-# 3. REPLACE TOÀN DIỆN:
+# 3. REPLACE TOÀN DIỆN (Dependencies Fix):
 # --- Google Cloud Core ---
 RUN go mod edit -replace cloud.google.com/go=cloud.google.com/go@v0.110.0 \
     && go mod edit -replace cloud.google.com/go/auth=cloud.google.com/go/auth@v0.13.0 \
@@ -66,45 +70,35 @@ RUN go mod edit -replace go.opentelemetry.io/otel=go.opentelemetry.io/otel@v1.24
 
 # ====================================================================================
 
-# [FIX SSL] Cấu hình proxy và SSL bypass
+# [FIX SSL & NETWORK]
 ENV GIT_SSL_NO_VERIFY=1
 ENV GONOSUMDB=*
 ENV GOINSECURE=*
 ENV GOPROXY=http://goproxy.cn,direct
 
-# Tidy và Download Dependencies
-# Lưu ý: Debian có sẵn git, không cần cài thêm
-RUN go mod tidy || true && go mod download
-
-# [FIX BACKUP] Backup go.mod
-RUN cp go.mod go.mod.bak \
-    && if [ -f go.sum ]; then cp go.sum go.sum.bak; else echo "No go.sum to backup"; fi
-
-# Copy source code (Ghi đè go.mod bằng bản lỗi 1.25 từ host)
-COPY . .
-
-# [FIX RESTORE] Khôi phục go.mod chuẩn
-RUN mv go.mod.bak go.mod \
-    && if [ -f go.sum.bak ]; then mv go.sum.bak go.sum; else rm -f go.sum; fi
+# [FIX HANG - BƯỚC QUYẾT ĐỊNH]
+# Chạy tidy và download TRƯỚC KHI gọi Seeker Agent.
+# Vì source code đã có (COPY . . ở trên), lệnh này sẽ thực sự tải thư viện về.
+RUN go mod tidy && go mod download
 
 # [SEEKER] Build Wrapper
 ARG SEEKER_URL="http://192.168.12.190:8082"
 ARG SEEKER_PROJECT="microservices-demo"
 
-# CGO_ENABLED=0 là bắt buộc để build file tĩnh (chạy được trên Alpine ở bước sau)
 ENV CGO_ENABLED=0 
 
-# [FIX HANG]
-# 1. Dùng Debian base nên Seeker Agent chạy native, không lo treo do musl.
-# 2. Vẫn giữ SEEKER_COMPOSITE_BUILD=true để tránh treo do mạng.
+# [FIX HANG & ENTRY POINT]
+# 1. SEEKER_COMPOSITE_BUILD=true: Build Offline.
+# 2. SEEKER_DEBUG=true: Bật log debug để xem nếu có lỗi.
+# 3. -p 1: Giảm song song để tránh tốn RAM gây treo.
 RUN export SEEKER_SERVER_URL=$SEEKER_URL \
     && export SEEKER_PROJECT_KEY=$SEEKER_PROJECT \
     && export SEEKER_ENTRY_POINT=/src/main.go \
     && export SEEKER_COMPOSITE_BUILD=true \
-    && /usr/local/bin/seeker-agent-build go build -v -o /go/bin/frontend .
+    && export SEEKER_DEBUG=true \
+    && /usr/local/bin/seeker-agent-build go build -p 1 -v -o /go/bin/frontend .
 
 # --- Final Stage ---
-# Vẫn dùng Alpine để runtime nhẹ
 FROM alpine:latest
 
 # [FIX SSL] Chuyen Alpine repo sang HTTP
