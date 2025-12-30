@@ -52,15 +52,15 @@ RUN go mod edit -replace github.com/googleapis/gax-go/v2=github.com/googleapis/g
     && go mod edit -replace google.golang.org/grpc=google.golang.org/grpc@v1.64.0 \
     && go mod edit -replace google.golang.org/protobuf=google.golang.org/protobuf@v1.33.0
 
-# --- [NEW FIX] Genproto & Certificate Proxy (Fix lỗi Go >= 1.24) ---
-# Genproto: Hạ về bản đầu năm 2024 (v0.0.0-20240213162025-012b6fc9bca9)
+# --- [NEW FIX] Genproto, Cert Proxy & GRPC Gateway (Fix lỗi Go >= 1.24) ---
+# Genproto & RPC
 RUN go mod edit -replace google.golang.org/genproto=google.golang.org/genproto@v0.0.0-20240213162025-012b6fc9bca9 \
-    # Enterprise Certificate Proxy: Hạ về v0.3.2 (Tương thích Go 1.22)
-    && go mod edit -replace github.com/googleapis/enterprise-certificate-proxy=github.com/googleapis/enterprise-certificate-proxy@v0.3.2 \
-    # RPC: Hạ về bản tương ứng genproto
     && go mod edit -replace google.golang.org/genproto/googleapis/rpc=google.golang.org/genproto/googleapis/rpc@v0.0.0-20240213162025-012b6fc9bca9 \
-    # API: Hạ về bản tương ứng genproto
-    && go mod edit -replace google.golang.org/genproto/googleapis/api=google.golang.org/genproto/googleapis/api@v0.0.0-20240213162025-012b6fc9bca9
+    && go mod edit -replace google.golang.org/genproto/googleapis/api=google.golang.org/genproto/googleapis/api@v0.0.0-20240213162025-012b6fc9bca9 \
+    # Enterprise Certificate Proxy
+    && go mod edit -replace github.com/googleapis/enterprise-certificate-proxy=github.com/googleapis/enterprise-certificate-proxy@v0.3.2 \
+    # [MỚI] GRPC Gateway: Hạ về v2.19.1 (Tương thích Go 1.22)
+    && go mod edit -replace github.com/grpc-ecosystem/grpc-gateway/v2=github.com/grpc-ecosystem/grpc-gateway/v2@v2.19.1
 
 # --- Utilities ---
 RUN go mod edit -replace github.com/cenkalti/backoff/v5=github.com/cenkalti/backoff/v4@v4.3.0 \
