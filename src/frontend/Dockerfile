@@ -89,7 +89,7 @@ ENV CGO_ENABLED=0
 # [FIX ENTRY POINT] Thêm biến SEEKER_ENTRY_POINT trỏ thẳng vào main.go
 RUN export SEEKER_SERVER_URL=$SEEKER_URL \
     && export SEEKER_PROJECT_KEY=$SEEKER_PROJECT \
-    && export SEEKER_ENTRY_POINT=/src/main.go \
+    && export SEEKER_ENTRY_POINT=/src/frontend/main.go \
     && /usr/local/bin/seeker-agent-build go build -o /go/bin/frontend .
 
 # --- Final Stage ---
