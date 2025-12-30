@@ -29,7 +29,7 @@ RUN chmod +x /usr/local/bin/seeker-agent-build
 COPY go.mod go.sum ./
 
 # ====================================================================================
-# [CRITICAL FIX] "ĐẠI PHẪU" DOWNGRADE VERSION (GIỮ NGUYÊN TỪ BƯỚC TRƯỚC VÌ ĐÃ THÀNH CÔNG)
+# [CRITICAL FIX] "ĐẠI PHẪU" DOWNGRADE VERSION
 # ====================================================================================
 
 # 1. Sửa header go.mod: Hạ từ 1.25 xuống 1.22 và xóa toolchain
@@ -39,7 +39,7 @@ RUN sed -i 's/^go 1\.[0-9]\+/go 1.22/' go.mod \
 # 2. Xóa go.sum cũ
 RUN rm go.sum
 
-# 3. REPLACE TOÀN DIỆN:
+# 3. REPLACE TOÀN DIỆN (Dependencies Fix):
 # --- Google Cloud Core ---
 RUN go mod edit -replace cloud.google.com/go=cloud.google.com/go@v0.110.0 \
     && go mod edit -replace cloud.google.com/go/auth=cloud.google.com/go/auth@v0.13.0 \
@@ -69,16 +69,23 @@ RUN go mod edit -replace go.opentelemetry.io/otel=go.opentelemetry.io/otel@v1.24
 
 # ====================================================================================
 
-# [FIX SSL] Cấu hình bỏ qua lỗi SSL và dùng Proxy HTTP
+# [FIX SSL] Cấu hình proxy
 ENV GIT_SSL_NO_VERIFY=1
 ENV GONOSUMDB=*
 ENV GOINSECURE=*
 ENV GOPROXY=http://goproxy.cn,direct
 
-# Tidy và Download
+# Tidy và Download Dependencies (Lúc này go.mod đang là bản TỐT)
 RUN go mod tidy && go mod download
 
+# [QUAN TRỌNG] Sao lưu file go.mod đã sửa (để không bị ghi đè ở bước sau)
+RUN cp go.mod go.mod.bak && cp go.sum go.sum.bak
+
+# Copy source code (Lệnh này sẽ ghi đè go.mod bằng bản lỗi 1.25 từ host)
 COPY . .
+
+# [QUAN TRỌNG] Khôi phục lại file go.mod đã sửa (để Seeker thấy bản 1.22)
+RUN mv go.mod.bak go.mod && mv go.sum.bak go.sum
 
 # [SEEKER] Build Wrapper
 ARG SEEKER_URL="http://192.168.12.190:8082"
@@ -86,10 +93,10 @@ ARG SEEKER_PROJECT="microservices-demo"
 
 ENV CGO_ENABLED=0 
 
-# [FIX ENTRY POINT] Thêm biến SEEKER_ENTRY_POINT trỏ thẳng vào main.go
+# Build với file go.mod đã được khôi phục
 RUN export SEEKER_SERVER_URL=$SEEKER_URL \
     && export SEEKER_PROJECT_KEY=$SEEKER_PROJECT \
-    && export SEEKER_ENTRY_POINT=/src/frontend/main.go \
+    && export SEEKER_ENTRY_POINT=/src/main.go \
     && /usr/local/bin/seeker-agent-build go build -o /go/bin/frontend .
 
 # --- Final Stage ---
