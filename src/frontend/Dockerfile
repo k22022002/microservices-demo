@@ -15,8 +15,11 @@
 # [CHANGE] Dùng golang:1.22 (Debian) thay vì alpine để tương thích 100% với Seeker Agent (glibc)
 # Điều này sẽ khắc phục lỗi treo mà không cần cài thêm thư viện tương thích.
 # --- Builder Stage ---
-# Dùng Debian (golang:1.22) để tương thích tốt nhất với Seeker Agent
-FROM golang:1.22 AS builder
+FROM golang:1.22-alpine AS builder
+
+# [FIX SSL] Chuyen Alpine repo sang HTTP
+RUN sed -i 's/https/http/g' /etc/apk/repositories \
+    && apk add --no-cache git
 
 WORKDIR /src
 
@@ -24,11 +27,11 @@ WORKDIR /src
 COPY seeker-agent-linux-amd64 /usr/local/bin/seeker-agent-build
 RUN chmod +x /usr/local/bin/seeker-agent-build
 
-# [QUAN TRỌNG] Copy TOÀN BỘ source code vào ngay từ đầu
-COPY . .
+# Copy file định nghĩa dependency
+COPY go.mod go.sum ./
 
 # ====================================================================================
-# [CRITICAL FIX] DOWNGRADE VERSION & PREPARE DEPENDENCIES
+# [CRITICAL FIX] "ĐẠI PHẪU" DOWNGRADE VERSION
 # ====================================================================================
 
 # 1. Sửa header go.mod: Hạ từ 1.25 xuống 1.22 và xóa toolchain
@@ -52,41 +55,41 @@ RUN go mod edit -replace github.com/googleapis/gax-go/v2=github.com/googleapis/g
     && go mod edit -replace google.golang.org/grpc=google.golang.org/grpc@v1.64.0 \
     && go mod edit -replace google.golang.org/protobuf=google.golang.org/protobuf@v1.33.0
 
-# --- Genproto, Cert Proxy & GRPC Gateway ---
-RUN go mod edit -replace google.golang.org/genproto=google.golang.org/genproto@v0.0.0-20240213162025-012b6fc9bca9 \
-    && go mod edit -replace google.golang.org/genproto/googleapis/rpc=google.golang.org/genproto/googleapis/rpc@v0.0.0-20240213162025-012b6fc9bca9 \
-    && go mod edit -replace google.golang.org/genproto/googleapis/api=google.golang.org/genproto/googleapis/api@v0.0.0-20240213162025-012b6fc9bca9 \
-    && go mod edit -replace github.com/googleapis/enterprise-certificate-proxy=github.com/googleapis/enterprise-certificate-proxy@v0.3.2 \
-    && go mod edit -replace github.com/grpc-ecosystem/grpc-gateway/v2=github.com/grpc-ecosystem/grpc-gateway/v2@v2.19.1
-
 # --- Utilities ---
 RUN go mod edit -replace github.com/cenkalti/backoff/v5=github.com/cenkalti/backoff/v4@v4.3.0 \
     && go mod edit -replace github.com/go-playground/validator/v10=github.com/go-playground/validator/v10@v10.20.0 \
     && go mod edit -replace github.com/google/pprof=github.com/google/pprof@v0.0.0-20240525223248-4bfdf5a9a2af
 
-# --- OpenTelemetry (Fix lỗi v1.39/v1.2.1 requires go 1.24) ---
+# --- OpenTelemetry ---
 RUN go mod edit -replace go.opentelemetry.io/otel=go.opentelemetry.io/otel@v1.24.0 \
     && go mod edit -replace go.opentelemetry.io/otel/sdk=go.opentelemetry.io/otel/sdk@v1.24.0 \
     && go mod edit -replace go.opentelemetry.io/otel/trace=go.opentelemetry.io/otel/trace@v1.24.0 \
     && go mod edit -replace go.opentelemetry.io/otel/metric=go.opentelemetry.io/otel/metric@v1.24.0 \
-    && go mod edit -replace go.opentelemetry.io/otel/exporters/otlp/otlptrace=go.opentelemetry.io/otel/exporters/otlp/otlptrace@v1.24.0 \
     && go mod edit -replace go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc=go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc@v1.24.0 \
     && go mod edit -replace go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc=go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc@v0.49.0 \
-    && go mod edit -replace go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp=go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp@v0.49.0 \
-    && go mod edit -replace go.opentelemetry.io/proto/otlp=go.opentelemetry.io/proto/otlp@v1.3.1 \
-    # [NEW FIX] Auto SDK: Hạ về v1.1.0 (Fix lỗi requires go 1.24)
-    && go mod edit -replace go.opentelemetry.io/auto/sdk=go.opentelemetry.io/auto/sdk@v1.1.0
+    && go mod edit -replace go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp=go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp@v0.49.0
 
 # ====================================================================================
 
-# [FIX SSL & NETWORK]
+# [FIX SSL] Cấu hình proxy
 ENV GIT_SSL_NO_VERIFY=1
 ENV GONOSUMDB=*
 ENV GOINSECURE=*
 ENV GOPROXY=http://goproxy.cn,direct
 
-# [FIX HANG] Chạy tidy và download TRƯỚC KHI build
+# Tidy và Download Dependencies
 RUN go mod tidy || true && go mod download
+
+# [FIX BACKUP] Chỉ backup go.sum NẾU nó tồn tại
+RUN cp go.mod go.mod.bak \
+    && if [ -f go.sum ]; then cp go.sum go.sum.bak; else echo "No go.sum to backup"; fi
+
+# Copy source code (Ghi đè go.mod bằng bản lỗi từ host)
+COPY . .
+
+# [FIX RESTORE] Khôi phục go.mod
+RUN mv go.mod.bak go.mod \
+    && if [ -f go.sum.bak ]; then mv go.sum.bak go.sum; else rm -f go.sum; fi
 
 # [SEEKER] Build Wrapper
 ARG SEEKER_URL="http://192.168.12.190:8082"
@@ -95,12 +98,14 @@ ARG SEEKER_PROJECT="microservices-demo"
 ENV CGO_ENABLED=0 
 
 # [FIX HANG & ENTRY POINT]
+# 1. SEEKER_ENTRY_POINT: Chỉ định file main.go để agent biết bắt đầu từ đâu.
+# 2. SEEKER_COMPOSITE_BUILD=true: Chế độ OFFLINE. Agent sẽ không cố kết nối server lúc build -> Tránh treo.
+# 3. go build -v: Thêm cờ verbose để in ra log chi tiết (nếu vẫn treo sẽ biết treo ở package nào).
 RUN export SEEKER_SERVER_URL=$SEEKER_URL \
     && export SEEKER_PROJECT_KEY=$SEEKER_PROJECT \
     && export SEEKER_ENTRY_POINT=/src/main.go \
     && export SEEKER_COMPOSITE_BUILD=true \
-    && export SEEKER_DEBUG=true \
-    && /usr/local/bin/seeker-agent-build go build -p 1 -v -o /go/bin/frontend .
+    && /usr/local/bin/seeker-agent-build go build -v -o /go/bin/frontend .
 
 # --- Final Stage ---
 FROM alpine:latest
