@@ -52,13 +52,22 @@ RUN go mod edit -replace github.com/googleapis/gax-go/v2=github.com/googleapis/g
     && go mod edit -replace google.golang.org/grpc=google.golang.org/grpc@v1.64.0 \
     && go mod edit -replace google.golang.org/protobuf=google.golang.org/protobuf@v1.33.0
 
+# --- [NEW FIX] Genproto & Certificate Proxy (Fix lỗi Go >= 1.24) ---
+# Genproto: Hạ về bản đầu năm 2024 (v0.0.0-20240213162025-012b6fc9bca9)
+RUN go mod edit -replace google.golang.org/genproto=google.golang.org/genproto@v0.0.0-20240213162025-012b6fc9bca9 \
+    # Enterprise Certificate Proxy: Hạ về v0.3.2 (Tương thích Go 1.22)
+    && go mod edit -replace github.com/googleapis/enterprise-certificate-proxy=github.com/googleapis/enterprise-certificate-proxy@v0.3.2 \
+    # RPC: Hạ về bản tương ứng genproto
+    && go mod edit -replace google.golang.org/genproto/googleapis/rpc=google.golang.org/genproto/googleapis/rpc@v0.0.0-20240213162025-012b6fc9bca9 \
+    # API: Hạ về bản tương ứng genproto
+    && go mod edit -replace google.golang.org/genproto/googleapis/api=google.golang.org/genproto/googleapis/api@v0.0.0-20240213162025-012b6fc9bca9
+
 # --- Utilities ---
 RUN go mod edit -replace github.com/cenkalti/backoff/v5=github.com/cenkalti/backoff/v4@v4.3.0 \
     && go mod edit -replace github.com/go-playground/validator/v10=github.com/go-playground/validator/v10@v10.20.0 \
     && go mod edit -replace github.com/google/pprof=github.com/google/pprof@v0.0.0-20240525223248-4bfdf5a9a2af
 
-# --- OpenTelemetry (Fix lỗi otlptrace v1.39 requires go 1.24) ---
-# Thêm replace cho 'otlptrace' và 'otlp' proto để đồng bộ v1.24.0
+# --- OpenTelemetry ---
 RUN go mod edit -replace go.opentelemetry.io/otel=go.opentelemetry.io/otel@v1.24.0 \
     && go mod edit -replace go.opentelemetry.io/otel/sdk=go.opentelemetry.io/otel/sdk@v1.24.0 \
     && go mod edit -replace go.opentelemetry.io/otel/trace=go.opentelemetry.io/otel/trace@v1.24.0 \
@@ -78,7 +87,6 @@ ENV GOINSECURE=*
 ENV GOPROXY=http://goproxy.cn,direct
 
 # [FIX HANG] Chạy tidy và download TRƯỚC KHI build
-# Thêm || true để bỏ qua lỗi non-critical nếu có
 RUN go mod tidy || true && go mod download
 
 # [SEEKER] Build Wrapper
