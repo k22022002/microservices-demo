@@ -52,14 +52,11 @@ RUN go mod edit -replace github.com/googleapis/gax-go/v2=github.com/googleapis/g
     && go mod edit -replace google.golang.org/grpc=google.golang.org/grpc@v1.64.0 \
     && go mod edit -replace google.golang.org/protobuf=google.golang.org/protobuf@v1.33.0
 
-# --- [NEW FIX] Genproto, Cert Proxy & GRPC Gateway (Fix lỗi Go >= 1.24) ---
-# Genproto & RPC
+# --- Genproto, Cert Proxy & GRPC Gateway ---
 RUN go mod edit -replace google.golang.org/genproto=google.golang.org/genproto@v0.0.0-20240213162025-012b6fc9bca9 \
     && go mod edit -replace google.golang.org/genproto/googleapis/rpc=google.golang.org/genproto/googleapis/rpc@v0.0.0-20240213162025-012b6fc9bca9 \
     && go mod edit -replace google.golang.org/genproto/googleapis/api=google.golang.org/genproto/googleapis/api@v0.0.0-20240213162025-012b6fc9bca9 \
-    # Enterprise Certificate Proxy
     && go mod edit -replace github.com/googleapis/enterprise-certificate-proxy=github.com/googleapis/enterprise-certificate-proxy@v0.3.2 \
-    # [MỚI] GRPC Gateway: Hạ về v2.19.1 (Tương thích Go 1.22)
     && go mod edit -replace github.com/grpc-ecosystem/grpc-gateway/v2=github.com/grpc-ecosystem/grpc-gateway/v2@v2.19.1
 
 # --- Utilities ---
@@ -67,7 +64,7 @@ RUN go mod edit -replace github.com/cenkalti/backoff/v5=github.com/cenkalti/back
     && go mod edit -replace github.com/go-playground/validator/v10=github.com/go-playground/validator/v10@v10.20.0 \
     && go mod edit -replace github.com/google/pprof=github.com/google/pprof@v0.0.0-20240525223248-4bfdf5a9a2af
 
-# --- OpenTelemetry ---
+# --- OpenTelemetry (Fix lỗi v1.39/v1.2.1 requires go 1.24) ---
 RUN go mod edit -replace go.opentelemetry.io/otel=go.opentelemetry.io/otel@v1.24.0 \
     && go mod edit -replace go.opentelemetry.io/otel/sdk=go.opentelemetry.io/otel/sdk@v1.24.0 \
     && go mod edit -replace go.opentelemetry.io/otel/trace=go.opentelemetry.io/otel/trace@v1.24.0 \
@@ -76,7 +73,9 @@ RUN go mod edit -replace go.opentelemetry.io/otel=go.opentelemetry.io/otel@v1.24
     && go mod edit -replace go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc=go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc@v1.24.0 \
     && go mod edit -replace go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc=go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc@v0.49.0 \
     && go mod edit -replace go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp=go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp@v0.49.0 \
-    && go mod edit -replace go.opentelemetry.io/proto/otlp=go.opentelemetry.io/proto/otlp@v1.3.1
+    && go mod edit -replace go.opentelemetry.io/proto/otlp=go.opentelemetry.io/proto/otlp@v1.3.1 \
+    # [NEW FIX] Auto SDK: Hạ về v1.1.0 (Fix lỗi requires go 1.24)
+    && go mod edit -replace go.opentelemetry.io/auto/sdk=go.opentelemetry.io/auto/sdk@v1.1.0
 
 # ====================================================================================
 
