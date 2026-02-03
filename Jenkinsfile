@@ -109,10 +109,17 @@ pipeline {
             steps {
                 script {
                     docker.withRegistry('', "${DOCKER_CRED_ID}") {
-                        dir('src/frontend') {
+			dir('src/frontend') {
+                            // [QUAN TRỌNG] Truyền ARG từ biến môi trường của Jenkins vào đây
                             def img = docker.build("${DOCKER_REGISTRY}/frontend:iast", 
-                                "--no-cache --build-arg SEEKER_URL=${SEEKER_URL} --build-arg SEEKER_PROJECT=${SEEKER_PROJECT_KEY} --build-arg SEEKER_ACCESS_TOKEN=${SEEKER_ACCESS_TOKEN} .")
-                            img.push()
+                                "--no-cache \
+                                --build-arg SEEKER_URL=${SEEKER_URL} \
+                                --build-arg SEEKER_PROJECT=${SEEKER_PROJECT_KEY} \
+                                --build-arg SEEKER_ACCESS_TOKEN=${SEEKER_ACCESS_TOKEN} \
+                                .")
+                            
+                            // Nếu lỗi SSL không push được thì comment dòng này lại
+                            img.push() 
                         }
                     }
                 }
