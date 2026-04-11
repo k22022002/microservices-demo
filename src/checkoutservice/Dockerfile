@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # --- Builder Stage ---
-FROM golang:1.22 AS builder
+FROM golang:1.25.6-bookworm AS builder
 
 RUN apt-get update && apt-get install -y git
 

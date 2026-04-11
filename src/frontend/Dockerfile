@@ -43,8 +43,8 @@
 # limitations under the License.
 
 # [CHANGE] Dùng golang:1.22 (Debian standard) thay vì alpine để tương thích 100% với Seeker Agent (glibc)
-# --- Builder Stage ---
-FROM golang:1.22 AS builder
+# Đổi dòng này thành 1.25.6-bookworm
+FROM golang:1.25.6-bookworm AS builder
 
 RUN apt-get update && apt-get install -y git
 
