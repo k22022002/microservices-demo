@@ -12,40 +12,45 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM --platform=$BUILDPLATFORM python:3.14.2-alpine@sha256:7af51ebeb83610fb69d633d5c61a2efb87efa4caf66b59862d624bb6ef788345 AS base
-
-FROM base AS builder
+# --- Builder Stage ---
+FROM python:3.14.2-slim AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-RUN apk update \
-    && apk add --no-cache g++ linux-headers \
-    && rm -rf /var/cache/apk/*
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends g++ \
+    && rm -rf /var/lib/apt/lists/*
 
-# get packages
 COPY requirements.txt .
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-FROM base
+# --- Final Stage ---
+FROM python:3.14.2-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-
-# Enable Profiler
 ENV ENABLE_PROFILER=1
-
-RUN apk update \
-    && apk add --no-cache libstdc++ \
-    && rm -rf /var/cache/apk/*
 
 WORKDIR /email_server
 
-# Grab packages from builder
-COPY --from=builder /usr/local/lib/python3.14/ /usr/local/lib/python3.14/
+# Copy packages
+COPY --from=builder /usr/local/lib/python3.14/site-packages/ /usr/local/lib/python3.14/site-packages/
+COPY --from=builder /usr/local/bin/ /usr/local/bin/
 
-# Add the application
+# Copy mã nguồn
 COPY . .
 
+# [SEEKER] Cài đặt Python Agent
+COPY seeker-python-agent.tar.gz /tmp/
+RUN pip install --no-cache-dir /tmp/seeker-python-agent.tar.gz \
+    && rm -f /tmp/seeker-python-agent.tar.gz
+
+# [SEEKER] Cấu hình
+ARG SEEKER_ACCESS_TOKEN
+ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
+ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
+ENV SEEKER_PROJECT_KEY="microservices-demo-python"
+
 EXPOSE 8080
-ENTRYPOINT [ "python", "email_server.py" ]
+ENTRYPOINT [ "seeker-exec", "python", "email_server.py" ]

@@ -12,30 +12,49 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM --platform=$BUILDPLATFORM golang:1.25.6-alpine@sha256:d9b2e14101f27ec8d09674cd01186798d227bb0daec90e032aeb1cd22ac0f029 AS builder
+# --- Builder Stage ---
+FROM golang:1.25.6-bookworm AS builder
 ARG TARGETOS
 ARG TARGETARCH
 
 WORKDIR /src
-# restore dependencies
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 
-# Skaffold passes in debug-oriented compiler flags
-ARG SKAFFOLD_GO_GCFLAGS
-RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} CGO_ENABLED=0 go build -ldflags="-s -w" -gcflags="${SKAFFOLD_GO_GCFLAGS}" -o /productcatalogservice .
+# [SEEKER] Cài đặt Go Agent Build Wrapper
+COPY seeker-agent-linux-amd64 /usr/local/bin/seeker-agent-build
+RUN chmod +x /usr/local/bin/seeker-agent-build
 
-FROM gcr.io/distroless/static
+# [SEEKER] Build Code
+ARG SEEKER_URL="http://192.168.12.190:8082"
+ARG SEEKER_ACCESS_TOKEN
+ARG SKAFFOLD_GO_GCFLAGS
+
+RUN export SEEKER_SERVER_URL=$SEEKER_URL \
+    && export SEEKER_PROJECT_KEY="microservices-demo-go" \
+    && export SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN \
+    && export SEEKER_ENTRY_POINT=/src/main.go \
+    && export SEEKER_COMPOSITE_BUILD=true \
+    && GOOS=${TARGETOS} GOARCH=${TARGETARCH} CGO_ENABLED=0 \
+       /usr/local/bin/seeker-agent-build go build -ldflags="-s -w" -gcflags="${SKAFFOLD_GO_GCFLAGS}" -o /productcatalogservice .
+
+# --- Final Stage ---
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
 COPY --from=builder /productcatalogservice ./server
 COPY products.json .
 
-# Definition of this variable is used by 'skaffold debug' to identify a golang binary.
-# Default behavior - a failure prints a stack trace for the current goroutine.
-# See https://golang.org/pkg/runtime/
-ENV GOTRACEBACK=single
+# [SEEKER] Cấu hình Runtime
+ARG SEEKER_ACCESS_TOKEN
+ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
+ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
+ENV SEEKER_PROJECT_KEY="microservices-demo-go"
+ENV SEEKER_AGENT_NAME="productcatalog-service"
 
+ENV GOTRACEBACK=single
 EXPOSE 3550
 ENTRYPOINT ["/src/server"]

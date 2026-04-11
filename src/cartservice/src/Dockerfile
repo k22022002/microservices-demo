@@ -13,27 +13,44 @@
 # limitations under the License.
 
 # https://mcr.microsoft.com/product/dotnet/sdk
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0.100-noble@sha256:c7445f141c04f1a6b454181bd098dcfa606c61ba0bd213d0a702489e5bd4cd71 AS builder
+# --- Builder Stage ---
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0.100-noble AS builder
 ARG TARGETARCH
 WORKDIR /app
-COPY cartservice.csproj .
-RUN dotnet restore cartservice.csproj \
-    -a $TARGETARCH
-COPY . .
-RUN dotnet publish cartservice.csproj \
-    -p:PublishSingleFile=true \
-    -a $TARGETARCH \
-    --self-contained true \
-    -p:PublishTrimmed=true \
-    -p:TrimMode=full \
-    -c release \
-    -o /cartservice
 
-# https://mcr.microsoft.com/product/dotnet/runtime-deps
-FROM mcr.microsoft.com/dotnet/runtime-deps:10.0.0-noble-chiseled@sha256:b857c8cb8d929183cfe4c6dd9994abba92a2639dd2dbaf06005379f815991604
+RUN apt-get update && apt-get install -y unzip
+
+# Tải và Restore Code
+COPY cartservice.csproj .
+RUN dotnet restore cartservice.csproj -a $TARGETARCH
+COPY . .
+
+# Build dự án
+RUN dotnet publish cartservice.csproj \
+    -p:PublishSingleFile=true -a $TARGETARCH \
+    --self-contained true -p:PublishTrimmed=true \
+    -p:TrimMode=full -c release -o /cartservice
+
+# [SEEKER] Chuẩn bị .NET Agent
+COPY seeker-dotnet-agent.zip /tmp/
+RUN unzip /tmp/seeker-dotnet-agent.zip -d /seeker-agent
+
+# --- Final Stage ---
+FROM mcr.microsoft.com/dotnet/runtime-deps:10.0.0-noble-chiseled
 
 WORKDIR /app
 COPY --from=builder /cartservice .
+COPY --from=builder /seeker-agent /seeker-agent
+
+# [SEEKER] Cấu hình CoreCLR Profiler
+ARG SEEKER_ACCESS_TOKEN
+ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
+ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
+ENV SEEKER_PROJECT_KEY="microservices-demo-dotnet"
+ENV CORECLR_ENABLE_PROFILING=1
+ENV CORECLR_PROFILER="{83CC9B47-19DE-45CA-9E39-20412BECEBA0}"
+ENV CORECLR_PROFILER_PATH="/seeker-agent/libcoreclr-profiler.so"
+
 EXPOSE 7070
 ENV DOTNET_EnableDiagnostics=0 \
     ASPNETCORE_HTTP_PORTS=7070

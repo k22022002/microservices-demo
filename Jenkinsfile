@@ -25,74 +25,39 @@ pipeline {
         stage('Download Seeker Agents (Direct Binary)') {
             steps {
                 script {
-                    echo "--- Downloading Agents with Check ---"
+                    echo "--- Tải các Agent Seeker ---"
 
-		    // 1. JAVA: Xóa file cũ
+                    // 1. JAVA
                     sh "rm -f src/adservice/seeker-agent.jar"
+                    sh "curl -k -L '${SEEKER_URL}/rest/api/latest/installers/agents/binaries/JAVA?projectKey=microservices-demo-java&accessToken=${SEEKER_ACCESS_TOKEN}' -o src/adservice/seeker-agent.jar"
                     
-                    // Tải file
-                    sh """
-                        curl -k -L "${SEEKER_URL}/rest/api/latest/installers/agents/binaries/JAVA?projectKey=microservices-demo-java&accessToken=${SEEKER_ACCESS_TOKEN}" \
-                        -o src/adservice/seeker-agent.jar
-                    """
-                    
-                    // [QUAN TRỌNG] Kiểm tra xem file tải về chứa cái gì
-                    sh """
-                        echo "--- KIỂM TRA FILE JAVA AGENT ---"
-                        # Lệnh 'file' giúp xem loại file (HTML hay Zip data)
-                        # Nếu không có lệnh file thì dùng cat để in nội dung
-                        if unzip -t src/adservice/seeker-agent.jar > /dev/null 2>&1; then
-                            echo "✅ SUCCESS: File JAR tải về OK."
-                        else
-                            echo "❌ ERROR: File tải về KHÔNG PHẢI là JAR. Nội dung thực tế là:"
-                            echo "======================================================="
-                            cat src/adservice/seeker-agent.jar
-                            echo "======================================================="
-                            echo "Dừng build để bạn kiểm tra lỗi trên."
-                            exit 1
-                        fi
-                    """
                     // 2. NODE.JS
-                    sh """
-                        curl -k -fL "${SEEKER_URL}/rest/api/latest/installers/agents/binaries/NODEJS?projectKey=microservices-demo-nodejs&accessToken=${SEEKER_ACCESS_TOKEN}" \
-                        -o src/paymentservice/seeker-node-agent.zip
-                        
-                        if unzip -t src/paymentservice/seeker-node-agent.zip; then
-                            echo "Node Agent downloaded successfully"
-                        else
-                            echo "ERROR: Node Agent file is corrupted!"
-                            exit 1
-                        fi
-                    """
+                    sh "rm -f src/paymentservice/seeker-node-agent.zip"
+                    sh "curl -k -fL '${SEEKER_URL}/rest/api/latest/installers/agents/binaries/NODEJS?projectKey=microservices-demo-nodejs&accessToken=${SEEKER_ACCESS_TOKEN}' -o src/paymentservice/seeker-node-agent.zip"
                     
-                    // 3. GO
-                    sh """
-                        curl -k -fL "${SEEKER_URL}/rest/api/latest/installers/agents/binaries/GO?osFamily=LINUX&projectKey=microservices-demo-go&accessToken=${SEEKER_ACCESS_TOKEN}" \
-                        -o src/frontend/seeker-agent-linux-amd64
-                        chmod +x src/frontend/seeker-agent-linux-amd64
-                    """
-	            sh "curl -k -fL '${SEEKER_URL}/rest/api/latest/installers/agents/binaries/GO?osFamily=LINUX&projectKey=microservices-demo-checkout&accessToken=${SEEKER_ACCESS_TOKEN}' -o src/checkoutservice/seeker-agent-linux-amd64"
-                    sh "chmod +x src/checkoutservice/seeker-agent-linux-amd64"
+                    // 3. GO (Dùng chung cho Frontend, Checkout, Shipping)
+                    sh "curl -k -fL '${SEEKER_URL}/rest/api/latest/installers/agents/binaries/GO?osFamily=LINUX&projectKey=microservices-demo-go&accessToken=${SEEKER_ACCESS_TOKEN}' -o /tmp/seeker-agent-linux-amd64"
+                    sh "chmod +x /tmp/seeker-agent-linux-amd64"
+                    
+                    // Phân phối file Go Agent
+                    sh "cp /tmp/seeker-agent-linux-amd64 src/frontend/"
+                    sh "cp /tmp/seeker-agent-linux-amd64 src/checkoutservice/"
+                    sh "cp /tmp/seeker-agent-linux-amd64 src/shippingservice/"
+
+                    // 4. PYTHON (Dùng chung cho Recommend, ShoppingAssistant)
+                    sh "curl -k -fL '${SEEKER_URL}/rest/api/latest/installers/agents/binaries/PYTHON?projectKey=microservices-demo-python&accessToken=${SEEKER_ACCESS_TOKEN}' -o /tmp/seeker-python-agent.tar.gz"
+                    sh "cp /tmp/seeker-python-agent.tar.gz src/recommendationservice/"
+                    sh "cp /tmp/seeker-python-agent.tar.gz src/shoppingassistantservice/"
                 }
             }
         }
-	stage('Sync Time for Docker Hub') {
-            steps {
-                script {
-                    echo "--- Tạm thời đổi giờ sang 2026 để qua mặt SSL của Docker Hub ---"
-                    // Cập nhật giờ thành năm 2026 (Ngày hiện tại của hệ thống Docker Hub)
-                    sh "sudo date -s '2026-03-03 12:00:00'"
-                }
-            }
-        }
-        stage('Build & Push: Java (AdService)') {
+
+        stage('Build & Push: AdService (Java)') {
             steps {
                 script {
                     docker.withRegistry('', "${DOCKER_CRED_ID}") {
                         dir('src/adservice') {
-                            // --no-cache để đảm bảo copy file agent mới nhất
-                            def img = docker.build("${DOCKER_REGISTRY}/adservice:iast", 
-                                "--no-cache --build-arg SEEKER_ACCESS_TOKEN=${SEEKER_ACCESS_TOKEN} .")
+                            def img = docker.build("${DOCKER_REGISTRY}/adservice:iast", "--no-cache --build-arg SEEKER_ACCESS_TOKEN=${SEEKER_ACCESS_TOKEN} .")
                             img.push()
                         }
                     }
@@ -100,65 +65,183 @@ pipeline {
             }
         }
 
-        stage('Build & Push: Node.js (PaymentService)') {
+        stage('Build & Push: PaymentService (Node.js)') {
             steps {
                 script {
                     docker.withRegistry('', "${DOCKER_CRED_ID}") {
                         dir('src/paymentservice') {
-                            def img = docker.build("${DOCKER_REGISTRY}/paymentservice:iast", 
-                                "--no-cache --build-arg SEEKER_ACCESS_TOKEN=${SEEKER_ACCESS_TOKEN} .")
+                            def img = docker.build("${DOCKER_REGISTRY}/paymentservice:iast", "--no-cache --build-arg SEEKER_ACCESS_TOKEN=${SEEKER_ACCESS_TOKEN} .")
                             img.push()
                         }
                     }
                 }
             }
         }
-	stage('Build & Push: CheckoutService (Go)') {
+
+        stage('Build & Push: CheckoutService (Go)') {
             steps {
                 script {
                     docker.withRegistry('', "${DOCKER_CRED_ID}") {
                         dir('src/checkoutservice') {
-			def img = docker.build("${DOCKER_REGISTRY}/checkoutservice:iast", 
-                                "--no-cache --build-arg SEEKER_URL=${SEEKER_URL} --build-arg SEEKER_PROJECT=microservices-demo-checkout --build-arg SEEKER_ACCESS_TOKEN=${SEEKER_ACCESS_TOKEN} .")
+                            def img = docker.build("${DOCKER_REGISTRY}/checkoutservice:iast", "--no-cache --build-arg SEEKER_URL=${SEEKER_URL} --build-arg SEEKER_ACCESS_TOKEN=${SEEKER_ACCESS_TOKEN} .")
                             img.push()
                         }
                     }
                 }
             }
         }
-        stage('Build & Push: Go (Frontend)') {
+
+        stage('Build & Push: Frontend (Go)') {
             steps {
                 script {
                     docker.withRegistry('', "${DOCKER_CRED_ID}") {
-			dir('src/frontend') {
-                            // [QUAN TRỌNG] Truyền ARG từ biến môi trường của Jenkins vào đây
-                            def img = docker.build("${DOCKER_REGISTRY}/frontend:iast", 
-                                "--no-cache \
-                                --build-arg SEEKER_URL=${SEEKER_URL} \
-                                --build-arg SEEKER_PROJECT=microservices-demo-go \
-                                --build-arg SEEKER_ACCESS_TOKEN=${SEEKER_ACCESS_TOKEN} \
-                                .")
-                            
-                            // Nếu lỗi SSL không push được thì comment dòng này lại
-                            img.push() 
+                        dir('src/frontend') {
+                            def img = docker.build("${DOCKER_REGISTRY}/frontend:iast", "--no-cache --build-arg SEEKER_URL=${SEEKER_URL} --build-arg SEEKER_ACCESS_TOKEN=${SEEKER_ACCESS_TOKEN} .")
+                            img.push()
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Build & Push: ShippingService (Go)') {
+            steps {
+                script {
+                    docker.withRegistry('', "${DOCKER_CRED_ID}") {
+                        dir('src/shippingservice') {
+                            def img = docker.build("${DOCKER_REGISTRY}/shippingservice:iast", "--no-cache --build-arg SEEKER_URL=${SEEKER_URL} --build-arg SEEKER_ACCESS_TOKEN=${SEEKER_ACCESS_TOKEN} .")
+                            img.push()
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Build & Push: RecommendationService (Python)') {
+            steps {
+                script {
+                    docker.withRegistry('', "${DOCKER_CRED_ID}") {
+                        dir('src/recommendationservice') {
+                            def img = docker.build("${DOCKER_REGISTRY}/recommendationservice:iast", "--no-cache --build-arg SEEKER_ACCESS_TOKEN=${SEEKER_ACCESS_TOKEN} .")
+                            img.push()
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Build & Push: ShoppingAssistant (Python)') {
+            steps {
+                script {
+                    docker.withRegistry('', "${DOCKER_CRED_ID}") {
+                        dir('src/shoppingassistantservice') {
+                            def img = docker.build("${DOCKER_REGISTRY}/shoppingassistantservice:iast", "--no-cache --build-arg SEEKER_ACCESS_TOKEN=${SEEKER_ACCESS_TOKEN} .")
+                            img.push()
+                        }
+                    }
+                }
+            }
+        }
+	stage('Download Seeker Agents (Direct Binary)') {
+            steps {
+                script {
+                    echo "--- Tải các Agent Seeker ---"
+                    // JAVA, NODE.JS, GO, PYTHON giữ nguyên như file trước...
+                    
+                    // Thêm phần này cho .NET (CartService)
+                    sh "curl -k -fL '${SEEKER_URL}/rest/api/latest/installers/agents/binaries/DOTNETCORE?osFamily=LINUX&projectKey=microservices-demo-dotnet&accessToken=${SEEKER_ACCESS_TOKEN}' -o src/cartservice/seeker-dotnet-agent.zip"
+                    
+                    // Copy agent Node cho Currency
+                    sh "cp src/paymentservice/seeker-node-agent.zip src/currencyservice/"
+                    
+                    // Copy agent Python cho Email và LoadGenerator
+                    sh "cp /tmp/seeker-python-agent.tar.gz src/emailservice/"
+                    sh "cp /tmp/seeker-python-agent.tar.gz src/loadgenerator/"
+                    
+                    // Copy agent Go cho ProductCatalog
+                    sh "cp /tmp/seeker-agent-linux-amd64 src/productcatalogservice/"
+                }
+            }
+        }
+
+        // Thêm các Stage Build mới (đặt cùng khối với các stage kia)
+        stage('Build & Push: CartService (.NET)') {
+            steps {
+                script {
+                    docker.withRegistry('', "${DOCKER_CRED_ID}") {
+                        dir('src/cartservice') {
+                            def img = docker.build("${DOCKER_REGISTRY}/cartservice:iast", "--no-cache --build-arg SEEKER_ACCESS_TOKEN=${SEEKER_ACCESS_TOKEN} .")
+                            img.push()
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Build & Push: CurrencyService (Node.js)') {
+            steps {
+                script {
+                    docker.withRegistry('', "${DOCKER_CRED_ID}") {
+                        dir('src/currencyservice') {
+                            def img = docker.build("${DOCKER_REGISTRY}/currencyservice:iast", "--no-cache --build-arg SEEKER_ACCESS_TOKEN=${SEEKER_ACCESS_TOKEN} .")
+                            img.push()
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Build & Push: EmailService (Python)') {
+            steps {
+                script {
+                    docker.withRegistry('', "${DOCKER_CRED_ID}") {
+                        dir('src/emailservice') {
+                            def img = docker.build("${DOCKER_REGISTRY}/emailservice:iast", "--no-cache --build-arg SEEKER_ACCESS_TOKEN=${SEEKER_ACCESS_TOKEN} .")
+                            img.push()
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Build & Push: ProductCatalogService (Go)') {
+            steps {
+                script {
+                    docker.withRegistry('', "${DOCKER_CRED_ID}") {
+                        dir('src/productcatalogservice') {
+                            def img = docker.build("${DOCKER_REGISTRY}/productcatalogservice:iast", "--no-cache --build-arg SEEKER_URL=${SEEKER_URL} --build-arg SEEKER_ACCESS_TOKEN=${SEEKER_ACCESS_TOKEN} .")
+                            img.push()
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Build & Push: LoadGenerator (Python)') {
+            steps {
+                script {
+                    docker.withRegistry('', "${DOCKER_CRED_ID}") {
+                        dir('src/loadgenerator') {
+                            def img = docker.build("${DOCKER_REGISTRY}/loadgenerator:iast", "--no-cache --build-arg SEEKER_ACCESS_TOKEN=${SEEKER_ACCESS_TOKEN} .")
+                            img.push()
                         }
                     }
                 }
             }
         }
     }
+    
     post {
         always {
             script {
-                echo "--- Dọn dẹp và Trả lại thời gian gốc (2025) ---"
-                // TRẢ LẠI THỜI GIAN CŨ NGAY CẢ KHI BUILD FAIL
-                sh "sudo date -s '2025-12-25 00:00:00'"
-                
-                // Dọn dẹp file
+                echo "--- Dọn dẹp Agent tạm ---"
                 sh "rm -f src/adservice/seeker-agent.jar"
                 sh "rm -f src/paymentservice/seeker-node-agent.zip"
                 sh "rm -f src/frontend/seeker-agent-linux-amd64"
                 sh "rm -f src/checkoutservice/seeker-agent-linux-amd64"
+                sh "rm -f src/shippingservice/seeker-agent-linux-amd64"
+                sh "rm -f src/recommendationservice/seeker-python-agent.tar.gz"
+                sh "rm -f src/shoppingassistantservice/seeker-python-agent.tar.gz"
             }
         }
     }

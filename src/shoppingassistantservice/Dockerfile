@@ -12,33 +12,40 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM --platform=$BUILDPLATFORM python:3.14.2-slim@sha256:9b81fe9acff79e61affb44aaf3b6ff234392e8ca477cb86c9f7fd11732ce9b6a AS base
-
-FROM base AS builder
+# --- Builder Stage ---
+FROM python:3.14.2-slim AS builder
 
 RUN apt-get -qq update \
     && apt-get install -y --no-install-recommends g++ \
     && rm -rf /var/lib/apt/lists/*
 
-# get packages
 COPY requirements.txt .
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-FROM base
-# Enable unbuffered logging
+# --- Final Stage ---
+FROM python:3.14.2-slim
+
 ENV PYTHONUNBUFFERED=1
-
-# get packages
 WORKDIR /shoppingassistantservice
 
-# Grab packages from builder
-COPY --from=builder /usr/local/lib/python3.14/ /usr/local/lib/python3.14/
+# Copy packages
+COPY --from=builder /usr/local/lib/python3.14/site-packages/ /usr/local/lib/python3.14/site-packages/
+COPY --from=builder /usr/local/bin/ /usr/local/bin/
 
-# Add the application
 COPY . .
 
-# set listen port
-ENV PORT "8080"
+# [SEEKER] Cài đặt Python Agent
+COPY seeker-python-agent.tar.gz /tmp/
+RUN pip install --no-cache-dir /tmp/seeker-python-agent.tar.gz \
+    && rm -f /tmp/seeker-python-agent.tar.gz
+
+# [SEEKER] Cấu hình
+ARG SEEKER_ACCESS_TOKEN
+ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
+ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
+ENV SEEKER_PROJECT_KEY="microservices-demo-python"
+
+ENV PORT="8080"
 EXPOSE 8080
 
-ENTRYPOINT ["python", "shoppingassistantservice.py"]
+ENTRYPOINT ["seeker-exec", "python", "shoppingassistantservice.py"]

@@ -12,38 +12,40 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM --platform=$BUILDPLATFORM python:3.14.2-alpine@sha256:7af51ebeb83610fb69d633d5c61a2efb87efa4caf66b59862d624bb6ef788345 AS base
-
-FROM base AS builder
+# --- Builder Stage ---
+FROM python:3.14.2-slim AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-RUN apk update \
-    && apk add --no-cache g++ linux-headers \
-    && rm -rf /var/cache/apk/*
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends g++ \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
+RUN pip install --prefix="/install" --no-cache-dir -r requirements.txt
 
-RUN pip install --prefix="/install" -r requirements.txt
-
-FROM base
+# --- Final Stage ---
+FROM python:3.14.2-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-
-RUN apk update \
-    && apk add --no-cache libstdc++ \
-    && rm -rf /var/cache/apk/*
 
 WORKDIR /loadgen
 
 COPY --from=builder /install /usr/local
-
-# Add application code.
 COPY locustfile.py .
 
-# enable gevent support in debugger
+# [SEEKER] Cài đặt Python Agent
+COPY seeker-python-agent.tar.gz /tmp/
+RUN pip install --no-cache-dir /tmp/seeker-python-agent.tar.gz \
+    && rm -f /tmp/seeker-python-agent.tar.gz
+
+# [SEEKER] Cấu hình
+ARG SEEKER_ACCESS_TOKEN
+ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
+ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
+ENV SEEKER_PROJECT_KEY="microservices-demo-python"
 ENV GEVENT_SUPPORT=True
 
-ENTRYPOINT locust --host="http://${FRONTEND_ADDR}" --headless -u "${USERS:-10}" -r "${RATE:-1}" 2>&1
+ENTRYPOINT ["seeker-exec", "locust", "--host=http://${FRONTEND_ADDR}", "--headless", "-u", "${USERS:-10}", "-r", "${RATE:-1}"]
