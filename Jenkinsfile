@@ -22,7 +22,7 @@ pipeline {
             }
         }
 
-        stage('Download Seeker Agents (Direct Binary)') {
+        stage('Download Seeker Agents') {
             steps {
                 script {
                     echo "--- Tải các Agent Seeker ---"
@@ -34,20 +34,25 @@ pipeline {
                     // 2. NODE.JS
                     sh "rm -f src/paymentservice/seeker-node-agent.zip"
                     sh "curl -k -fL '${SEEKER_URL}/rest/api/latest/installers/agents/binaries/NODEJS?projectKey=microservices-demo-nodejs&accessToken=${SEEKER_ACCESS_TOKEN}' -o src/paymentservice/seeker-node-agent.zip"
+                    sh "cp src/paymentservice/seeker-node-agent.zip src/currencyservice/"
                     
-                    // 3. GO (Dùng chung cho Frontend, Checkout, Shipping)
+                    // 3. GO
                     sh "curl -k -fL '${SEEKER_URL}/rest/api/latest/installers/agents/binaries/GO?osFamily=LINUX&projectKey=microservices-demo-go&accessToken=${SEEKER_ACCESS_TOKEN}' -o /tmp/seeker-agent-linux-amd64"
                     sh "chmod +x /tmp/seeker-agent-linux-amd64"
-                    
-                    // Phân phối file Go Agent
                     sh "cp /tmp/seeker-agent-linux-amd64 src/frontend/"
                     sh "cp /tmp/seeker-agent-linux-amd64 src/checkoutservice/"
                     sh "cp /tmp/seeker-agent-linux-amd64 src/shippingservice/"
+                    sh "cp /tmp/seeker-agent-linux-amd64 src/productcatalogservice/"
 
-                    // 4. PYTHON (Dùng chung cho Recommend, ShoppingAssistant)
+                    // 4. PYTHON
                     sh "curl -k -fL '${SEEKER_URL}/rest/api/latest/installers/agents/binaries/PYTHON?projectKey=microservices-demo-python&accessToken=${SEEKER_ACCESS_TOKEN}' -o /tmp/seeker-python-agent.tar.gz"
                     sh "cp /tmp/seeker-python-agent.tar.gz src/recommendationservice/"
                     sh "cp /tmp/seeker-python-agent.tar.gz src/shoppingassistantservice/"
+                    sh "cp /tmp/seeker-python-agent.tar.gz src/emailservice/"
+                    sh "cp /tmp/seeker-python-agent.tar.gz src/loadgenerator/"
+
+                    // 5. .NET
+                    sh "curl -k -fL '${SEEKER_URL}/rest/api/latest/installers/agents/binaries/DOTNETCORE?osFamily=LINUX&projectKey=microservices-demo-dotnet&accessToken=${SEEKER_ACCESS_TOKEN}' -o src/cartservice/seeker-dotnet-agent.zip"
                 }
             }
         }
@@ -142,29 +147,7 @@ pipeline {
                 }
             }
         }
-	stage('Download Seeker Agents (Direct Binary)') {
-            steps {
-                script {
-                    echo "--- Tải các Agent Seeker ---"
-                    // JAVA, NODE.JS, GO, PYTHON giữ nguyên như file trước...
-                    
-                    // Thêm phần này cho .NET (CartService)
-                    sh "curl -k -fL '${SEEKER_URL}/rest/api/latest/installers/agents/binaries/DOTNETCORE?osFamily=LINUX&projectKey=microservices-demo-dotnet&accessToken=${SEEKER_ACCESS_TOKEN}' -o src/cartservice/seeker-dotnet-agent.zip"
-                    
-                    // Copy agent Node cho Currency
-                    sh "cp src/paymentservice/seeker-node-agent.zip src/currencyservice/"
-                    
-                    // Copy agent Python cho Email và LoadGenerator
-                    sh "cp /tmp/seeker-python-agent.tar.gz src/emailservice/"
-                    sh "cp /tmp/seeker-python-agent.tar.gz src/loadgenerator/"
-                    
-                    // Copy agent Go cho ProductCatalog
-                    sh "cp /tmp/seeker-agent-linux-amd64 src/productcatalogservice/"
-                }
-            }
-        }
 
-        // Thêm các Stage Build mới (đặt cùng khối với các stage kia)
         stage('Build & Push: CartService (.NET)') {
             steps {
                 script {
@@ -237,11 +220,18 @@ pipeline {
                 echo "--- Dọn dẹp Agent tạm ---"
                 sh "rm -f src/adservice/seeker-agent.jar"
                 sh "rm -f src/paymentservice/seeker-node-agent.zip"
+                sh "rm -f src/currencyservice/seeker-node-agent.zip"
                 sh "rm -f src/frontend/seeker-agent-linux-amd64"
                 sh "rm -f src/checkoutservice/seeker-agent-linux-amd64"
                 sh "rm -f src/shippingservice/seeker-agent-linux-amd64"
+                sh "rm -f src/productcatalogservice/seeker-agent-linux-amd64"
                 sh "rm -f src/recommendationservice/seeker-python-agent.tar.gz"
                 sh "rm -f src/shoppingassistantservice/seeker-python-agent.tar.gz"
+                sh "rm -f src/emailservice/seeker-python-agent.tar.gz"
+                sh "rm -f src/loadgenerator/seeker-python-agent.tar.gz"
+                sh "rm -f src/cartservice/seeker-dotnet-agent.zip"
+                sh "rm -f /tmp/seeker-agent-linux-amd64"
+                sh "rm -f /tmp/seeker-python-agent.tar.gz"
             }
         }
     }
