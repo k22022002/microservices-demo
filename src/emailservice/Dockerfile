@@ -19,11 +19,15 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends g++ \
+    && apt-get install -y --no-install-recommends g++ gcc python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# [SEEKER] Cài đặt Agent tại Builder
+COPY seeker-python-agent.tar.gz /tmp/
+RUN pip install --no-cache-dir /tmp/seeker-python-agent.tar.gz
 
 # --- Final Stage ---
 FROM python:3.14.2-slim
@@ -34,17 +38,11 @@ ENV ENABLE_PROFILER=1
 
 WORKDIR /email_server
 
-# Copy packages
+# Copy packages đã build
 COPY --from=builder /usr/local/lib/python3.14/site-packages/ /usr/local/lib/python3.14/site-packages/
 COPY --from=builder /usr/local/bin/ /usr/local/bin/
 
-# Copy mã nguồn
 COPY . .
-
-# [SEEKER] Cài đặt Python Agent
-COPY seeker-python-agent.tar.gz /tmp/
-RUN pip install --no-cache-dir /tmp/seeker-python-agent.tar.gz \
-    && rm -f /tmp/seeker-python-agent.tar.gz
 
 # [SEEKER] Cấu hình
 ARG SEEKER_ACCESS_TOKEN
