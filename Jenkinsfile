@@ -52,7 +52,7 @@ pipeline {
                     sh "cp /tmp/seeker-python-agent.tar.gz src/loadgenerator/"
 
                     // 5. .NET
-                    sh "curl -k -fL '${SEEKER_URL}/rest/api/latest/installers/agents/binaries/DOTNETCORE?osFamily=LINUX&projectKey=microservices-demo-dotnet&accessToken=${SEEKER_ACCESS_TOKEN}' -o src/cartservice/seeker-dotnet-agent.zip"
+		    sh "curl -k -fL '${SEEKER_URL}/rest/api/latest/installers/agents/binaries/DOTNETCORE?osFamily=LINUX&projectKey=microservices-demo-dotnet&accessToken=${SEEKER_ACCESS_TOKEN}' -o src/cartservice/src/seeker-dotnet-agent.zip"
                 }
             }
         }
@@ -147,12 +147,11 @@ pipeline {
                 }
             }
         }
-
-        stage('Build & Push: CartService (.NET)') {
+	stage('Build & Push: CartService (.NET)') {
             steps {
                 script {
                     docker.withRegistry('', "${DOCKER_CRED_ID}") {
-                        dir('src/cartservice') {
+                        dir('src/cartservice/src') {   // <--- ĐÃ THÊM /src VÀO ĐÂY
                             def img = docker.build("${DOCKER_REGISTRY}/cartservice:iast", "--no-cache --build-arg SEEKER_ACCESS_TOKEN=${SEEKER_ACCESS_TOKEN} .")
                             img.push()
                         }
@@ -229,7 +228,7 @@ pipeline {
                 sh "rm -f src/shoppingassistantservice/seeker-python-agent.tar.gz"
                 sh "rm -f src/emailservice/seeker-python-agent.tar.gz"
                 sh "rm -f src/loadgenerator/seeker-python-agent.tar.gz"
-                sh "rm -f src/cartservice/seeker-dotnet-agent.zip"
+		sh "rm -f src/cartservice/src/seeker-dotnet-agent.zip"
                 sh "rm -f /tmp/seeker-agent-linux-amd64"
                 sh "rm -f /tmp/seeker-python-agent.tar.gz"
             }
