@@ -14,20 +14,21 @@
 
 # https://mcr.microsoft.com/product/dotnet/sdk
 # --- Builder Stage ---
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0.100-noble AS builder
-ARG TARGETARCH
+# --- Builder Stage ---
+# Đã xóa --platform=$BUILDPLATFORM
+FROM mcr.microsoft.com/dotnet/sdk:10.0.100-noble AS builder
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y unzip
 
-# Tải và Restore Code
+# Tải và Restore Code (Đã xóa -a $TARGETARCH)
 COPY cartservice.csproj .
-RUN dotnet restore cartservice.csproj -a $TARGETARCH
+RUN dotnet restore cartservice.csproj
 COPY . .
 
-# Build dự án
+# Build dự án (Đã xóa -a $TARGETARCH)
 RUN dotnet publish cartservice.csproj \
-    -p:PublishSingleFile=true -a $TARGETARCH \
+    -p:PublishSingleFile=true \
     --self-contained true -p:PublishTrimmed=true \
     -p:TrimMode=full -c release -o /cartservice
 
