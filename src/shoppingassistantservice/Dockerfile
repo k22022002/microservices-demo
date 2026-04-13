@@ -15,12 +15,14 @@
 # --- Builder Stage ---
 FROM python:3.14.2-slim AS builder
 
-RUN apt-get update \
+RUN apt-get -qq update \
     && apt-get install -y --no-install-recommends g++ gcc python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+
+# [SỬA LỖI TẠI ĐÂY] Ép cài thêm aiohttp vào chung với requirements
+RUN pip install --no-cache-dir -r requirements.txt aiohttp
 
 # [SEEKER] Cài đặt Agent tại Builder
 COPY seeker-python-agent.tar.gz /tmp/
@@ -32,7 +34,7 @@ FROM python:3.14.2-slim
 ENV PYTHONUNBUFFERED=1
 WORKDIR /shoppingassistantservice
 
-# Copy packages đã build (Bao gồm Seeker)
+# Copy packages đã build (Bao gồm Seeker và aiohttp)
 COPY --from=builder /usr/local/lib/python3.14/site-packages/ /usr/local/lib/python3.14/site-packages/
 COPY --from=builder /usr/local/bin/ /usr/local/bin/
 
