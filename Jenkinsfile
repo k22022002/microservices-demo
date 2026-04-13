@@ -12,7 +12,8 @@ pipeline {
         // Bypass SSL
         GIT_SSL_NO_VERIFY = '1'
         NODE_TLS_REJECT_UNAUTHORIZED = '0'
-    }
+        DOCKER_BUILDKIT = '1'
+   }
 
     stages {
         stage('Checkout Code') {
