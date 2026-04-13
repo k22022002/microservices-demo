@@ -2,15 +2,14 @@ version: "3.9"
 
 services:
   # =========================================================================
-  # SERVICE CỦA BẠN (IAST)
+  # TẤT CẢ SERVICE ĐỀU ĐÃ ĐƯỢC TÍCH HỢP IAST
   # =========================================================================
 
   frontend:
     image: kienngo22022002/frontend:iast
-    pull_policy: never
+    pull_policy: always # Nên để always nếu bạn chạy trên máy chủ khác để nó tự pull từ Docker Hub về
     container_name: frontend
     restart: always
-    # [DUY NHẤT] Chỉ Frontend được mở port ra ngoài (8090 né Jenkins)
     ports:
       - "8095:8080"
     environment:
@@ -28,103 +27,99 @@ services:
 
   paymentservice:
     image: kienngo22022002/paymentservice:iast
-    pull_policy: never
+    pull_policy: always
     container_name: paymentservice
     restart: always
     environment:
       - PORT=50051
       - SEEKER_SERVER_URL=http://192.168.12.190:8082
       - SEEKER_PROJECT_KEY=microservices-demo-nodejs
-      
-      # [FIX 1] Đặt tên Agent cố định để tránh sinh ra project -1, -2
       - SEEKER_AGENT_NAME=paymentservice-node-agent
-      
-      # [FIX 2] Bật tính năng theo dõi gRPC cho Node.js
       - SEEKER_GRPC_SUPPORT=true
       - SEEKER_JS_GRPC_SUPPORT=true
-      
-      # [FIX 3] Dùng --require thay vì --import (Vì app này là CommonJS)
-      
+      # Đã thêm lại NODE_OPTIONS đúng chuẩn cho Node 20
+      - NODE_OPTIONS=--import @seeker/agent/index.mjs
       - DISABLE_PROFILER=1
       - DISABLE_DEBUGGER=1
       - SEEKER_AGENT_LOG_LEVEL=DEBUG
       - NODE_TLS_REJECT_UNAUTHORIZED=0
+
   adservice:
     image: kienngo22022002/adservice:iast
-    pull_policy: never
+    pull_policy: always
     container_name: adservice
     restart: always
-    # [ĐÃ XÓA PORTS]
     environment:
       - PORT=9555
       - SEEKER_SERVER_URL=http://192.168.12.190:8082
       - SEEKER_PROJECT_KEY=microservices-demo-java
       - JAVA_TOOL_OPTIONS=-javaagent:/app/seeker-agent.jar
 
-  # =========================================================================
-  # SERVICE CỦA GOOGLE (GỐC)
-  # =========================================================================
-
   cartservice:
-    image: gcr.io/google-samples/microservices-demo/cartservice:v0.10.1
-    pull_policy: never
+    image: kienngo22022002/cartservice:iast
+    pull_policy: always
     container_name: cartservice
     restart: always
-    # [ĐÃ XÓA PORTS]
     environment:
       - REDIS_ADDR=redis-cart:6379
+      - SEEKER_SERVER_URL=http://192.168.12.190:8082
+      - SEEKER_PROJECT_KEY=microservices-demo-dotnet
 
   redis-cart:
     image: redis:alpine
-    pull_policy: never
+    pull_policy: always
     container_name: redis-cart
     restart: always
-    # [ĐÃ XÓA PORTS]
 
   currencyservice:
-    image: gcr.io/google-samples/microservices-demo/currencyservice:v0.10.1
-    pull_policy: never
+    image: kienngo22022002/currencyservice:iast
+    pull_policy: always
     container_name: currencyservice
     restart: always
-    # [ĐÃ XÓA PORTS]
     environment:
       - PORT=7000
       - DISABLE_PROFILER=1
+      - NODE_OPTIONS=--import @seeker/agent/index.mjs
+      - SEEKER_SERVER_URL=http://192.168.12.190:8082
+      - SEEKER_PROJECT_KEY=microservices-demo-nodejs
+      - SEEKER_AGENT_NAME=currencyservice-node-agent
 
   productcatalogservice:
-    image: gcr.io/google-samples/microservices-demo/productcatalogservice:v0.10.1
-    pull_policy: never
+    image: kienngo22022002/productcatalogservice:iast
+    pull_policy: always
     container_name: productcatalogservice
     restart: always
-    # [ĐÃ XÓA PORTS]
     environment:
       - PORT=3550
+      - SEEKER_SERVER_URL=http://192.168.12.190:8082
+      - SEEKER_PROJECT_KEY=microservices-demo-go
 
   recommendationservice:
-    image: gcr.io/google-samples/microservices-demo/recommendationservice:v0.10.1
-    pull_policy: never
+    image: kienngo22022002/recommendationservice:iast
+    pull_policy: always
     container_name: recommendationservice
     restart: always
-    # [ĐÃ XÓA PORTS] - Tránh xung đột 8080 với EmailService/Jenkins
     environment:
       - PORT=8080
       - PRODUCT_CATALOG_SERVICE_ADDR=productcatalogservice:3550
+      - SEEKER_SERVER_URL=http://192.168.12.190:8082
+      - SEEKER_PROJECT_KEY=microservices-demo-python
 
   shippingservice:
-    image: gcr.io/google-samples/microservices-demo/shippingservice:v0.10.1
-    pull_policy: never
+    image: kienngo22022002/shippingservice:iast
+    pull_policy: always
     container_name: shippingservice
     restart: always
-    # [ĐÃ XÓA PORTS] - Tránh xung đột 50051 với PaymentService
     environment:
       - PORT=50051
+      - SEEKER_SERVER_URL=http://192.168.12.190:8082
+      - SEEKER_PROJECT_KEY=microservices-demo-go
 
   checkoutservice:
     image: kienngo22022002/checkoutservice:iast
-    pull_policy: never
+    pull_policy: always
     container_name: checkoutservice
     restart: always
-    # [ĐÃ XÓA PORTS]
     environment:
       - PORT=5050
       - PRODUCT_CATALOG_SERVICE_ADDR=productcatalogservice:3550
@@ -134,18 +129,41 @@ services:
       - CURRENCY_SERVICE_ADDR=currencyservice:7000
       - CART_SERVICE_ADDR=cartservice:7070
       - SEEKER_SERVER_URL=http://192.168.12.190:8082
-      # [THAY ĐỔI] Đổi Key tại đây
       - SEEKER_PROJECT_KEY=microservices-demo-checkout
-      
-      # [QUAN TRỌNG] Thêm dòng này để vẽ mũi tên gRPC sang Payment (Node.js)
       - SEEKER_GRPC_CLIENT_STREAM_ENABLED=true
       - SEEKER_GRPC_UNARY_CLIENT_ENABLED=true
       - SEEKER_AGENT_LOG_LEVEL=DEBUG
+
   emailservice:
-    image: gcr.io/google-samples/microservices-demo/emailservice:v0.10.1
-    pull_policy: never
+    image: kienngo22022002/emailservice:iast
+    pull_policy: always
     container_name: emailservice
     restart: always
-    # [ĐÃ XÓA PORTS]
     environment:
       - PORT=8080
+      - SEEKER_SERVER_URL=http://192.168.12.190:8082
+      - SEEKER_PROJECT_KEY=microservices-demo-python
+
+  shopping-assistant:
+    image: kienngo22022002/shoppingassistantservice:iast
+    pull_policy: always
+    container_name: shopping-assistant
+    restart: always
+    environment:
+      - PORT=8080
+      - SEEKER_SERVER_URL=http://192.168.12.190:8082
+      - SEEKER_PROJECT_KEY=microservices-demo-python
+
+  loadgenerator:
+    image: kienngo22022002/loadgenerator:iast
+    pull_policy: always
+    container_name: loadgenerator
+    restart: always
+    environment:
+      - FRONTEND_ADDR=frontend:8080
+      - USERS=10
+      - RATE=1
+      - SEEKER_SERVER_URL=http://192.168.12.190:8082
+      - SEEKER_PROJECT_KEY=microservices-demo-python
+    depends_on:
+      - frontend

@@ -61,9 +61,10 @@ ARG SEEKER_ACCESS_TOKEN
 ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
 ENV SEEKER_PROJECT_KEY="microservices-demo-nodejs"
-
-# Đổi sang --import
 ENV NODE_OPTIONS="--import @seeker/agent/index.mjs"
+
+# [SỬA LỖI TẠI ĐÂY] Thêm biến môi trường PORT để server không bị undefined 
+ENV PORT=7000
 
 EXPOSE 7000
 ENTRYPOINT [ "node", "server.js" ]

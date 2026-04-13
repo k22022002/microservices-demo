@@ -13,7 +13,8 @@
 # limitations under the License.
 
 # --- Builder Stage ---
-FROM python:3.14.2-slim AS builder
+# Đổi xuống Python 3.11
+FROM python:3.11-slim AS builder
 
 RUN apt-get -qq update \
     && apt-get install -y --no-install-recommends g++ gcc python3-dev \
@@ -21,7 +22,7 @@ RUN apt-get -qq update \
 
 COPY requirements.txt .
 
-# [SỬA LỖI TẠI ĐÂY] Ép cài thêm aiohttp vào chung với requirements
+# Vẫn giữ aiohttp đã fix ở bước trước
 RUN pip install --no-cache-dir -r requirements.txt aiohttp
 
 # [SEEKER] Cài đặt Agent tại Builder
@@ -29,13 +30,14 @@ COPY seeker-python-agent.tar.gz /tmp/
 RUN pip install --no-cache-dir /tmp/seeker-python-agent.tar.gz
 
 # --- Final Stage ---
-FROM python:3.14.2-slim
+# Đổi xuống Python 3.11
+FROM python:3.11-slim
 
 ENV PYTHONUNBUFFERED=1
 WORKDIR /shoppingassistantservice
 
-# Copy packages đã build (Bao gồm Seeker và aiohttp)
-COPY --from=builder /usr/local/lib/python3.14/site-packages/ /usr/local/lib/python3.14/site-packages/
+# [QUAN TRỌNG] Đổi đường dẫn copy từ python3.14 thành python3.11
+COPY --from=builder /usr/local/lib/python3.11/site-packages/ /usr/local/lib/python3.11/site-packages/
 COPY --from=builder /usr/local/bin/ /usr/local/bin/
 
 COPY . .
