@@ -153,6 +153,8 @@ services:
       - PORT=8080
       - SEEKER_SERVER_URL=http://192.168.12.190:8082
       - SEEKER_PROJECT_KEY=microservices-demo-python
+      # [THÊM BIẾN NÀY] Khai báo Project ID của Google Cloud
+      - PROJECT_ID=my-gcp-project-id
 
   loadgenerator:
     image: kienngo22022002/loadgenerator:iast
