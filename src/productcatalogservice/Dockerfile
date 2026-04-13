@@ -14,8 +14,6 @@
 
 # --- Builder Stage ---
 FROM golang:1.25.6-bookworm AS builder
-ARG TARGETOS
-ARG TARGETARCH
 
 WORKDIR /src
 COPY go.mod go.sum ./
@@ -31,13 +29,13 @@ ARG SEEKER_URL="http://192.168.12.190:8082"
 ARG SEEKER_ACCESS_TOKEN
 ARG SKAFFOLD_GO_GCFLAGS
 
+# [SỬA LỖI TẠI ĐÂY] Đổi /src/main.go thành /src/server.go và xóa GOOS/GOARCH của BuildKit
 RUN export SEEKER_SERVER_URL=$SEEKER_URL \
     && export SEEKER_PROJECT_KEY="microservices-demo-go" \
     && export SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN \
-    && export SEEKER_ENTRY_POINT=/src/main.go \
+    && export SEEKER_ENTRY_POINT=/src/server.go \
     && export SEEKER_COMPOSITE_BUILD=true \
-    && GOOS=${TARGETOS} GOARCH=${TARGETARCH} CGO_ENABLED=0 \
-       /usr/local/bin/seeker-agent-build go build -ldflags="-s -w" -gcflags="${SKAFFOLD_GO_GCFLAGS}" -o /productcatalogservice .
+    && CGO_ENABLED=0 /usr/local/bin/seeker-agent-build go build -ldflags="-s -w" -gcflags="${SKAFFOLD_GO_GCFLAGS}" -o /productcatalogservice .
 
 # --- Final Stage ---
 FROM debian:bookworm-slim
