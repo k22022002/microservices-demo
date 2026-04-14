@@ -34,8 +34,8 @@ RUN dotnet publish cartservice.csproj \
 
 # [SEEKER] Chuẩn bị .NET Agent
 COPY seeker-dotnet-agent.zip /tmp/
-RUN unzip /tmp/seeker-dotnet-agent.zip -d /seeker-agent
-
+RUN unzip /tmp/seeker-dotnet-agent.zip -d /seeker-agent && \
+    chmod -R 755 /seeker-agent
 # --- Final Stage ---
 FROM mcr.microsoft.com/dotnet/runtime-deps:10.0.0-noble-chiseled
 
@@ -49,9 +49,12 @@ ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
 ENV SEEKER_PROJECT_KEY="microservices-demo-dotnet"
 ENV CORECLR_ENABLE_PROFILING=1
-ENV CORECLR_PROFILER="{83CC9B47-19DE-45CA-9E39-20412BECEBA0}"
-ENV CORECLR_PROFILER_PATH="/seeker-agent/libcoreclr-profiler.so"
 
+# SỬA LẠI ĐÚNG GUID CỦA SEEKER
+ENV CORECLR_PROFILER="{C7AD49B3-093B-4AB1-A241-1E4365DD8901}"
+
+# SỬA LẠI ĐÚNG ĐƯỜNG DẪN FILE .so (Thường nằm trong thư mục x64)
+ENV CORECLR_PROFILER_PATH="/seeker-agent/x64/Agent.Profiler-Dnc.so"
 EXPOSE 7070
 ENV DOTNET_EnableDiagnostics=1 \
     ASPNETCORE_HTTP_PORTS=7070
