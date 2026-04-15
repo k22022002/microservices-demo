@@ -50,6 +50,7 @@ ENV SEEKER_PROJECT_KEY="microservices-demo-python"
 
 # THÊM DÒNG NÀY (Thay "your-project-id" bằng ID thực tế hoặc một chuỗi bất kỳ để bypass lỗi)
 ENV PROJECT_ID="your-project-id"
+ENV REGION="us-central1"
 ENV PORT="8080"
 EXPOSE 8080
 

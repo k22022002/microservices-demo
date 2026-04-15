@@ -26,12 +26,11 @@ COPY cartservice.csproj .
 RUN dotnet restore cartservice.csproj
 COPY . .
 
-# Build dự án (Đã xóa -a $TARGETARCH)
+# Build dự án cho môi trường IAST (Tắt Trim và SingleFile)
 RUN dotnet publish cartservice.csproj \
-    -p:PublishSingleFile=true \
-    --self-contained true -p:PublishTrimmed=true \
-    -p:TrimMode=full -c release -o /cartservice
-
+    --self-contained true \
+    -c release \
+    -o /cartservice
 # [SEEKER] Chuẩn bị .NET Agent
 COPY seeker-dotnet-agent.zip /tmp/
 RUN unzip /tmp/seeker-dotnet-agent.zip -d /seeker-agent && \
