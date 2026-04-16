@@ -211,6 +211,24 @@ pipeline {
                 }
             }
         }
+	stage('Deploy to Environment') {
+            steps {
+                script {
+                    echo "--- Bắt đầu Deploy Web với file docker-compose-iast.yaml có sẵn ---"
+                    
+                    // Dừng hệ thống cũ (nếu có)
+                    sh "docker-compose -f docker-compose-iast.yaml down"
+                    
+                    // Kéo các image :iast mới nhất vừa được build
+                    sh "docker-compose -f docker-compose-iast.yaml pull"
+                    
+                    // Khởi chạy toàn bộ hệ thống chạy ngầm (-d)
+                    sh "docker-compose -f docker-compose-iast.yaml up -d"
+                    
+                    echo "Deploy thành công! Hãy truy cập Web để test."
+                }
+            }
+        }
     }
     
     post {
