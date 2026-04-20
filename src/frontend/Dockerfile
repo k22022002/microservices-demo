@@ -61,7 +61,7 @@ COPY . .
 
 # Build bằng Seeker Wrapper
 ARG SEEKER_URL="http://192.168.12.190:8082"
-ARG SEEKER_PROJECT_KEY="microservices-demo-go"
+ARG SEEKER_PROJECT_KEY="frontend"
 ARG SEEKER_ACCESS_TOKEN
 
 RUN export SEEKER_SERVER_URL=$SEEKER_URL \
@@ -87,7 +87,7 @@ COPY ./static ./static
 ARG SEEKER_ACCESS_TOKEN
 ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
-ENV SEEKER_PROJECT_KEY="microservices-demo-go"
+ENV SEEKER_PROJECT_KEY="frontend"
 ENV SEEKER_AGENT_NAME="frontend-service"
 
 # Biến môi trường App

@@ -45,7 +45,7 @@ COPY locustfile.py .
 ARG SEEKER_ACCESS_TOKEN
 ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
-ENV SEEKER_PROJECT_KEY="microservices-demo-python"
+ENV SEEKER_PROJECT_KEY="loadgenerator"
 ENV GEVENT_SUPPORT=True
 
 ENTRYPOINT ["seeker-exec", "locust", "--host=http://${FRONTEND_ADDR}", "--headless", "-u", "${USERS:-10}", "-r", "${RATE:-1}"]

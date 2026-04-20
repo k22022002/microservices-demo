@@ -46,7 +46,7 @@ COPY . .
 ARG SEEKER_ACCESS_TOKEN
 ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
-ENV SEEKER_PROJECT_KEY="microservices-demo-python"
+ENV SEEKER_PROJECT_KEY="shoppingassistantservice"
 
 # THÊM DÒNG NÀY (Thay "your-project-id" bằng ID thực tế hoặc một chuỗi bất kỳ để bypass lỗi)
 ENV PROJECT_ID="your-project-id"

@@ -33,7 +33,7 @@ ARG SEEKER_URL="http://192.168.12.190:8082"
 ARG SEEKER_ACCESS_TOKEN
 
 RUN export SEEKER_SERVER_URL=$SEEKER_URL \
-    && export SEEKER_PROJECT_KEY="microservices-demo-checkout" \
+    && export SEEKER_PROJECT_KEY="checkoutservice" \
     && export SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN \
     && export SEEKER_ENTRY_POINT=/src/main.go \
     && export SEEKER_COMPOSITE_BUILD=true \
@@ -51,7 +51,7 @@ COPY --from=builder /src/checkoutservice /src/checkoutservice
 ARG SEEKER_ACCESS_TOKEN
 ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
-ENV SEEKER_PROJECT_KEY="microservices-demo-checkout" 
+ENV SEEKER_PROJECT_KEY="checkoutservice" 
 ENV PORT=5050
 
 ENV SHIPPING_SERVICE_ADDR="shippingservice:50051"

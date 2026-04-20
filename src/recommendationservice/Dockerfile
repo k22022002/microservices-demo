@@ -48,7 +48,7 @@ COPY . .
 ARG SEEKER_ACCESS_TOKEN
 ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
-ENV SEEKER_PROJECT_KEY="microservices-demo-python"
+ENV SEEKER_PROJECT_KEY="recommendationservice"
 
 # [SỬA LỖI TẠI ĐÂY] Thêm biến môi trường giao tiếp giữa các service
 ENV PRODUCT_CATALOG_SERVICE_ADDR="productcatalogservice:3550"

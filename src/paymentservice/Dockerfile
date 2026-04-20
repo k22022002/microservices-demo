@@ -74,7 +74,7 @@ RUN mkdir -p node_modules/@google-cloud/profiler \
 ARG SEEKER_ACCESS_TOKEN
 ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
-ENV SEEKER_PROJECT_KEY="microservices-demo-nodejs"
+ENV SEEKER_PROJECT_KEY="paymentservice"
 
 # Fix cảnh báo Deprecation: Đổi sang --import theo đúng log yêu cầu
 ENV NODE_OPTIONS="--import @seeker/agent/index.mjs"

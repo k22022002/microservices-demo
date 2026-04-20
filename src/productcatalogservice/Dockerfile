@@ -31,7 +31,7 @@ ARG SKAFFOLD_GO_GCFLAGS
 
 # [SỬA LỖI TẠI ĐÂY] Đổi /src/main.go thành /src/server.go và xóa GOOS/GOARCH của BuildKit
 RUN export SEEKER_SERVER_URL=$SEEKER_URL \
-    && export SEEKER_PROJECT_KEY="microservices-demo-go" \
+    && export SEEKER_PROJECT_KEY="productcatalogservice" \
     && export SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN \
     && export SEEKER_ENTRY_POINT=/src/server.go \
     && export SEEKER_COMPOSITE_BUILD=true \
@@ -50,7 +50,7 @@ COPY products.json .
 ARG SEEKER_ACCESS_TOKEN
 ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
-ENV SEEKER_PROJECT_KEY="microservices-demo-go"
+ENV SEEKER_PROJECT_KEY="productcatalogservice"
 ENV SEEKER_AGENT_NAME="productcatalog-service"
 
 ENV GOTRACEBACK=single

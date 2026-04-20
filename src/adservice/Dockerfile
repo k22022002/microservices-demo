@@ -43,7 +43,7 @@ COPY --from=builder /tmp/real-agent.jar /app/seeker-agent.jar
 ARG SEEKER_ACCESS_TOKEN
 ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
-ENV SEEKER_PROJECT_KEY="microservices-demo-java"
+ENV SEEKER_PROJECT_KEY="adservice"
 ENV JAVA_TOOL_OPTIONS="-javaagent:/app/seeker-agent.jar"
 
 COPY --from=builder /app/build/install/hipstershop /app

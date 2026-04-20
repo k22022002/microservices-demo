@@ -23,7 +23,7 @@ services:
       - AD_SERVICE_ADDR=adservice:9555
       - SHOPPING_ASSISTANT_SERVICE_ADDR=shopping-assistant:8080
       - SEEKER_SERVER_URL=http://192.168.12.190:8082
-      - SEEKER_PROJECT_KEY=microservices-demo-go
+      - SEEKER_PROJECT_KEY=frontend
 
   paymentservice:
     image: kienngo22022002/paymentservice:iast
@@ -33,7 +33,7 @@ services:
     environment:
       - PORT=50051
       - SEEKER_SERVER_URL=http://192.168.12.190:8082
-      - SEEKER_PROJECT_KEY=microservices-demo-nodejs
+      - SEEKER_PROJECT_KEY=paymentservice
       - SEEKER_AGENT_NAME=paymentservice-node-agent
       - SEEKER_GRPC_SUPPORT=true
       - SEEKER_JS_GRPC_SUPPORT=true
@@ -52,7 +52,7 @@ services:
     environment:
       - PORT=9555
       - SEEKER_SERVER_URL=http://192.168.12.190:8082
-      - SEEKER_PROJECT_KEY=microservices-demo-java
+      - SEEKER_PROJECT_KEY=adservice
       - JAVA_TOOL_OPTIONS=-javaagent:/app/seeker-agent.jar
 
   cartservice:
@@ -63,7 +63,7 @@ services:
     environment:
       - REDIS_ADDR=redis-cart:6379
       - SEEKER_SERVER_URL=http://192.168.12.190:8082
-      - SEEKER_PROJECT_KEY=microservices-demo-dotnet
+      - SEEKER_PROJECT_KEY=cartservice
 
   redis-cart:
     image: redis:alpine
@@ -81,7 +81,7 @@ services:
       - DISABLE_PROFILER=1
       - NODE_OPTIONS=--import @seeker/agent/index.mjs
       - SEEKER_SERVER_URL=http://192.168.12.190:8082
-      - SEEKER_PROJECT_KEY=microservices-demo-nodejs
+      - SEEKER_PROJECT_KEY=currencyservice
       - SEEKER_AGENT_NAME=currencyservice-node-agent
 
   productcatalogservice:
@@ -92,7 +92,7 @@ services:
     environment:
       - PORT=3550
       - SEEKER_SERVER_URL=http://192.168.12.190:8082
-      - SEEKER_PROJECT_KEY=microservices-demo-go
+      - SEEKER_PROJECT_KEY=productcatalogservice
 
   recommendationservice:
     image: kienngo22022002/recommendationservice:iast
@@ -103,7 +103,7 @@ services:
       - PORT=8080
       - PRODUCT_CATALOG_SERVICE_ADDR=productcatalogservice:3550
       - SEEKER_SERVER_URL=http://192.168.12.190:8082
-      - SEEKER_PROJECT_KEY=microservices-demo-python
+      - SEEKER_PROJECT_KEY=recommendationservice
 
   shippingservice:
     image: kienngo22022002/shippingservice:iast
@@ -113,7 +113,7 @@ services:
     environment:
       - PORT=50051
       - SEEKER_SERVER_URL=http://192.168.12.190:8082
-      - SEEKER_PROJECT_KEY=microservices-demo-go
+      - SEEKER_PROJECT_KEY=shippingservice
 
   checkoutservice:
     image: kienngo22022002/checkoutservice:iast
@@ -129,7 +129,7 @@ services:
       - CURRENCY_SERVICE_ADDR=currencyservice:7000
       - CART_SERVICE_ADDR=cartservice:7070
       - SEEKER_SERVER_URL=http://192.168.12.190:8082
-      - SEEKER_PROJECT_KEY=microservices-demo-checkout
+      - SEEKER_PROJECT_KEY=checkoutservice
       - SEEKER_GRPC_CLIENT_STREAM_ENABLED=true
       - SEEKER_GRPC_UNARY_CLIENT_ENABLED=true
       - SEEKER_AGENT_LOG_LEVEL=DEBUG
@@ -142,7 +142,7 @@ services:
     environment:
       - PORT=8080
       - SEEKER_SERVER_URL=http://192.168.12.190:8082
-      - SEEKER_PROJECT_KEY=microservices-demo-python
+      - SEEKER_PROJECT_KEY=emailservice
 
   shopping-assistant:
     image: kienngo22022002/shoppingassistantservice:iast
@@ -152,7 +152,7 @@ services:
     environment:
       - PORT=8080
       - SEEKER_SERVER_URL=http://192.168.12.190:8082
-      - SEEKER_PROJECT_KEY=microservices-demo-python
+      - SEEKER_PROJECT_KEY=shoppingassistantservice
   loadgenerator:
     image: kienngo22022002/loadgenerator:iast
     pull_policy: always
@@ -163,6 +163,6 @@ services:
       - USERS=10
       - RATE=1
       - SEEKER_SERVER_URL=http://192.168.12.190:8082
-      - SEEKER_PROJECT_KEY=microservices-demo-python
+      - SEEKER_PROJECT_KEY=loadgenerator
     depends_on:
       - frontend

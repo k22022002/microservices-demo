@@ -31,7 +31,7 @@ ARG SEEKER_ACCESS_TOKEN
 ARG SKAFFOLD_GO_GCFLAGS
 
 RUN export SEEKER_SERVER_URL=$SEEKER_URL \
-    && export SEEKER_PROJECT_KEY="microservices-demo-go" \
+    && export SEEKER_PROJECT_KEY="shippingservice" \
     && export SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN \
     && export SEEKER_ENTRY_POINT=/src/main.go \
     && export SEEKER_COMPOSITE_BUILD=true \
@@ -50,7 +50,7 @@ COPY --from=builder /go/bin/shippingservice /src/shippingservice
 ARG SEEKER_ACCESS_TOKEN
 ENV SEEKER_ACCESS_TOKEN=$SEEKER_ACCESS_TOKEN
 ENV SEEKER_SERVER_URL="http://192.168.12.190:8082"
-ENV SEEKER_PROJECT_KEY="microservices-demo-go"
+ENV SEEKER_PROJECT_KEY="shippingservice"
 ENV SEEKER_AGENT_NAME="shipping-service"
 
 ENV APP_PORT=50051
