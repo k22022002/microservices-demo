@@ -51,7 +51,7 @@ def simulate_user_activity(user_id):
             "country": "United States",
             "credit_card_number": "4242424242424242", 
             "credit_card_expiration_month": "12",
-            "credit_card_expiration_year": "2025",
+            "credit_card_expiration_year": "2027",
             "credit_card_cvv": "123"
         }
         
